@@ -27,13 +27,14 @@ import {
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSyAxxUwYK_qQuGr6PnQH8fdTm7GrwcZAwug",
-  authDomain: "epic-electronics-274dd.firebaseapp.com",
-  projectId: "epic-electronics-274dd",
-  storageBucket: "epic-electronics-274dd.firebasestorage.app",
-  messagingSenderId: "404096890819",
-  appId: "1:404096890819:web:8d7d535ed494176c7c6f76",
-  measurementId: "G-1M5F38XPKS"
+  apiKey: "AIzaSyAweG6HJwQS5zJM02pt5rRWr4_GDQwQpZk",
+  authDomain: "epic-laptops.firebaseapp.com",
+  databaseURL: "https://epic-laptops-default-rtdb.firebaseio.com",
+  projectId: "epic-laptops",
+  storageBucket: "epic-laptops.firebasestorage.app",
+  messagingSenderId: "1021123689288",
+  appId: "1:1021123689288:web:1f25ad56230d75203bd17d",
+  measurementId: "G-MJDTZT23GV"
 };
 
 // Initialize Firebase
