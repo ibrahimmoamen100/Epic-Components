@@ -55,6 +55,9 @@ const Delivery = lazy(() => import("./pages/Delivery").catch(() => ({ default: (
 const Orders = lazy(() => import("./pages/Orders").catch(() => ({ default: () => <div>Error loading Orders</div> })));
 const Settings = lazy(() => import("./pages/Settings").catch(() => ({ default: () => <div>Error loading Settings</div> })));
 const Attendance = lazy(() => import("./pages/Attendance").catch(() => ({ default: () => <div>Error loading Attendance</div> })));
+const VendorSignup = lazy(() => import("./pages/VendorSignup").catch(() => ({ default: () => <div>Error loading VendorSignup</div> })));
+const VendorLogin = lazy(() => import("./pages/VendorLogin").catch(() => ({ default: () => <div>Error loading VendorLogin</div> })));
+const VendorDashboard = lazy(() => import("./pages/VendorDashboard").catch(() => ({ default: () => <div>Error loading VendorDashboard</div> })));
 
 // Loading component
 const Loading = () => (
@@ -110,6 +113,10 @@ const AppRoutes = () => {
             <Route path="/orders" element={<Orders />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/attendance" element={<Attendance />} />
+            {/* Vendor (Seller) routes */}
+            <Route path="/vendor/signup" element={<VendorSignup />} />
+            <Route path="/vendor/login" element={<VendorLogin />} />
+            <Route path="/vendor/dashboard" element={<VendorDashboard />} />
           </Routes>
         </Suspense>
       </ErrorBoundary>

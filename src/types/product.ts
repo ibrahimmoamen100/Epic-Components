@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { VendorSchema } from "./vendor";
 
 // Size schema for products
 export const ProductSizeSchema = z.object({
@@ -93,6 +94,12 @@ export const ProductSchema = z.object({
       notes: z.string().optional(),
     })
     .optional(),
+
+  // Vendor linkage (multi-vendor features)
+  vendorId: z.string().optional(), // Firestore vendors/{id}
+  vendorName: z.string().optional(), // Cached for faster UI display & filtering
+  vendorLogoUrl: z.string().optional(), // Optional cached logo for storefront
+  vendorLocation: z.string().optional(), // Optional cached location for storefront
 });
 
 export type Product = z.infer<typeof ProductSchema>;
@@ -122,6 +129,9 @@ export const FilterSchema = z.object({
   sortBy: z
     .enum(["price-asc", "price-desc", "name-asc", "name-desc"])
     .optional(),
+  // Vendor filters
+  vendorId: z.string().optional(),
+  vendorName: z.string().optional(),
 });
 
 export type Filter = z.infer<typeof FilterSchema>;

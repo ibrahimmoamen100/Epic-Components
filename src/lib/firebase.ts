@@ -4,6 +4,7 @@ import { getAnalytics } from "firebase/analytics";
 import { getAuth } from 'firebase/auth';
 import { getFirestore, collection, doc, getDocs, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, orderBy, where, Timestamp, runTransaction } from 'firebase/firestore';
 import { Product } from '@/types/product';
+import { Vendor } from '@/types/vendor';
 import {
   Employee,
   AttendanceRecord,
@@ -428,6 +429,165 @@ export class FirebaseProductsService {
 
 // Create and export the products service instance
 export const productsService = new FirebaseProductsService();
+
+// Firebase Vendors Service
+export class FirebaseVendorsService {
+  private collectionName = 'vendors';
+
+  // Map Firestore data to Vendor type (including id + date normalization)
+  private mapVendor(docId: string, data: any): Vendor {
+    return {
+      ...(data as Vendor),
+      id: docId,
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+      updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
+    };
+  }
+
+  // Get all vendors
+  async getAllVendors(): Promise<Vendor[]> {
+    try {
+      const vendorsRef = collection(db, this.collectionName);
+      const q = query(vendorsRef, orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+
+      const vendors: Vendor[] = [];
+      querySnapshot.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
+        vendors.push(this.mapVendor(docSnapshot.id, data));
+      });
+
+      return vendors;
+    } catch (error) {
+      console.error('Error getting vendors:', error);
+      throw error;
+    }
+  }
+
+  // Get vendor by Firestore id
+  async getVendorById(id: string): Promise<Vendor | null> {
+    try {
+      const docRef = doc(db, this.collectionName, id);
+      const docSnap = await getDoc(docRef);
+
+      if (!docSnap.exists()) return null;
+
+      return this.mapVendor(docSnap.id, docSnap.data());
+    } catch (error) {
+      console.error('Error getting vendor by id:', error);
+      throw error;
+    }
+  }
+
+  // Get vendor by Auth UID (after signup/link)
+  async getVendorByAuthUid(authUid: string): Promise<Vendor | null> {
+    try {
+      const vendorsRef = collection(db, this.collectionName);
+      const q = query(vendorsRef, where('authUid', '==', authUid));
+      const snap = await getDocs(q);
+
+      if (snap.empty) return null;
+
+      const docSnap = snap.docs[0];
+      return this.mapVendor(docSnap.id, docSnap.data());
+    } catch (error) {
+      console.error('Error getting vendor by authUid:', error);
+      throw error;
+    }
+  }
+
+  // Create new vendor (used on vendor signup)
+  async addVendor(
+    payload: Omit<Vendor, 'id' | 'createdAt' | 'updatedAt' | 'productsCount'>
+  ): Promise<Vendor> {
+    try {
+      const vendorsRef = collection(db, this.collectionName);
+
+      const now = Timestamp.now();
+      const data = {
+        ...payload,
+        productsCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      const docRef = await addDoc(vendorsRef, data);
+
+      return {
+        ...(payload as Vendor),
+        id: docRef.id,
+        productsCount: 0,
+        createdAt: now.toDate().toISOString(),
+        updatedAt: now.toDate().toISOString(),
+      };
+    } catch (error) {
+      console.error('Error adding vendor:', error);
+      throw error;
+    }
+  }
+
+  // Update vendor (used by Admin)
+  async updateVendor(id: string, update: Partial<Vendor>): Promise<Vendor> {
+    try {
+      const docRef = doc(db, this.collectionName, id);
+      const payload: any = { ...update };
+      delete payload.id;
+      delete payload.createdAt;
+
+      payload.updatedAt = Timestamp.now();
+
+      await updateDoc(docRef, payload);
+
+      const updated = await this.getVendorById(id);
+      if (!updated) {
+        throw new Error('Vendor not found after update');
+      }
+      return updated;
+    } catch (error) {
+      console.error('Error updating vendor:', error);
+      throw error;
+    }
+  }
+
+  // Delete vendor (Admin only)
+  async deleteVendor(id: string): Promise<void> {
+    try {
+      const docRef = doc(db, this.collectionName, id);
+      await deleteDoc(docRef);
+    } catch (error) {
+      console.error('Error deleting vendor:', error);
+      throw error;
+    }
+  }
+
+  // Get how many products a vendor currently has
+  async getVendorProductsCount(vendorId: string): Promise<number> {
+    try {
+      const productsRef = collection(db, 'products');
+      const q = query(productsRef, where('vendorId', '==', vendorId));
+      const snap = await getDocs(q);
+      return snap.size;
+    } catch (error) {
+      console.error('Error getting vendor products count:', error);
+      throw error;
+    }
+  }
+
+  // Lightweight check: can this vendor add a new product respecting productLimit?
+  async canVendorAddProduct(vendorId: string): Promise<boolean> {
+    const vendor = await this.getVendorById(vendorId);
+    if (!vendor) {
+      throw new Error('Vendor not found');
+    }
+
+    const limit = typeof vendor.productLimit === 'number' ? vendor.productLimit : 5;
+    const currentCount = await this.getVendorProductsCount(vendorId);
+
+    return currentCount < limit;
+  }
+}
+
+export const vendorsService = new FirebaseVendorsService();
 
 // Firebase Sales Service
 export interface CashierSale {
