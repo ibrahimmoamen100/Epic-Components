@@ -33,6 +33,7 @@ interface UseVendorAuthReturn {
   }) => Promise<{ success: boolean; error?: string }>;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
+  refreshSession: () => Promise<void>;
 }
 
 export const useVendorAuth = (): UseVendorAuthReturn => {
@@ -176,6 +177,11 @@ export const useVendorAuth = (): UseVendorAuthReturn => {
     signup,
     login,
     logout,
+    refreshSession: async () => {
+      if (auth.currentUser) {
+        await loadVendorForUser(auth.currentUser);
+      }
+    },
   };
 };
 

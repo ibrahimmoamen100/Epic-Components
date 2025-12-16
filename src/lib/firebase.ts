@@ -2,6 +2,7 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getAuth } from 'firebase/auth';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFirestore, collection, doc, getDocs, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, orderBy, where, Timestamp, runTransaction } from 'firebase/firestore';
 import { Product } from '@/types/product';
 import { Vendor } from '@/types/vendor';
@@ -44,6 +45,7 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firebase Authentication and get a reference to the service
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const storage = getStorage(app);
 
 // Initialize Analytics only in production
 let analytics;
@@ -585,6 +587,49 @@ export class FirebaseVendorsService {
 
     return currentCount < limit;
   }
+
+  /**
+   * Admin Password Override
+   * Allows admin to reset a vendor's password without knowing the old password
+   * Note: This uses Firebase Auth's updatePassword which requires the user to be signed in
+   * For true admin override, you would need Firebase Admin SDK on the backend
+   * 
+   * This implementation updates the vendor's email auth with a new password
+   * @param vendorId - The vendor's Firestore document ID
+   * @param newPassword - The new password to set
+   */
+  async resetVendorPassword(vendorId: string, newPassword: string): Promise<void> {
+    try {
+      // Get vendor to find their authUid and email
+      const vendor = await this.getVendorById(vendorId);
+      if (!vendor) {
+        throw new Error('Vendor not found');
+      }
+
+      if (!vendor.authUid) {
+        throw new Error('Vendor has no linked authentication account');
+      }
+
+      // Note: In a production environment, this should be done via a Cloud Function
+      // using Firebase Admin SDK which can update any user's password
+      // For now, we'll throw an error with instructions
+      throw new Error(
+        'Password reset requires Firebase Admin SDK. Please implement a Cloud Function for admin password reset. ' +
+        `Vendor email: ${vendor.gmailAccount}, Auth UID: ${vendor.authUid}`
+      );
+
+      // TODO: Implement Cloud Function endpoint that accepts:
+      // - Admin authentication token
+      // - Vendor authUid
+      // - New password
+      // And uses admin.auth().updateUser(uid, { password: newPassword })
+    } catch (error) {
+      console.error('Error resetting vendor password:', error);
+      throw error;
+    }
+  }
+
+
 }
 
 export const vendorsService = new FirebaseVendorsService();
@@ -1327,24 +1372,24 @@ export class FirebaseAttendanceService {
 
       const deduction = shouldApplyDelayDeduction
         ? calculateDelayDeduction(
-            delayMinutes,
-            excuseStatus,
-            employee.monthlySalary,
-            employee.monthlyWorkingHours,
-            dailyWage
-          )
+          delayMinutes,
+          excuseStatus,
+          employee.monthlySalary,
+          employee.monthlyWorkingHours,
+          dailyWage
+        )
         : { type: 'none' as const, amount: 0 };
 
       // Calculate overtime
       const overtime =
         normalizedStatus === 'present'
           ? calculateOvertime(
-              effectiveCheckIn,
-              effectiveCheckOut,
-              employee.workingHours,
-              employee.monthlySalary,
-              employee.monthlyWorkingHours
-            )
+            effectiveCheckIn,
+            effectiveCheckOut,
+            employee.workingHours,
+            employee.monthlySalary,
+            employee.monthlyWorkingHours
+          )
           : { hours: 0, amount: 0 };
 
       // Calculate daily net

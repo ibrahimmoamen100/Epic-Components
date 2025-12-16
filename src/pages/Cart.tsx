@@ -2,7 +2,7 @@ import { useStore } from "@/store/useStore";
 import { ProductModal } from "@/components/ProductModal";
 import LoginRequiredModal from "@/components/LoginRequiredModal";
 import { useState, useEffect } from "react";
-import { Product } from "@/types/product";
+import { Product, CartItem } from "@/types/product";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,7 +54,7 @@ interface VendorGroup {
   vendorId: string;
   vendorName: string;
   vendorPhone?: string;
-  items: { product: Product; quantity: number }[];
+  items: CartItem[];
   total: number;
 }
 
@@ -91,13 +91,19 @@ const Cart = () => {
   // Watch form fields for validation
   const notes = watch("notes");
 
+  const vendors = useStore((state) => state.vendors);
+
   // Group cart items by vendor (for display and WhatsApp)
   const vendorGroups: VendorGroup[] = cart.reduce(
     (groups: VendorGroup[], item) => {
       if (!item.product) return groups;
       const vendorId = item.product.vendorId || "unknown";
-      const vendorName = item.product.vendorName || "بائع غير معروف";
-      const vendorPhone = item.product.vendorPhone || DEFAULT_SUPPLIER.phone;
+
+      // Resolve vendor dynamically
+      const vendor = vendors.find(v => v.id === vendorId);
+      const vendorName = vendor?.name || item.product.vendorName || "بائع غير معروف";
+      const vendorPhone = vendor?.phoneNumber || item.product.vendorPhone || DEFAULT_SUPPLIER.phone;
+
       const existing = groups.find((g) => g.vendorId === vendorId);
       const price = getCartItemPrice(item);
       if (existing) {
@@ -217,7 +223,7 @@ ${'='.repeat(30)}
     try {
       console.log('Saving order for user:', userProfile.uid);
       console.log('User profile:', userProfile);
-      
+
       const orderItems = cart
         .filter((item) => item.product && item.product.id) // Filter out invalid items
         .map((item) => {
@@ -228,19 +234,19 @@ ${'='.repeat(30)}
             price: item.unitFinalPrice, // Use the calculated final price
             totalPrice: item.totalPrice,
             image: item.product.images[0],
-          selectedSize: item.selectedSize ? {
-            id: item.selectedSize.id,
-            label: item.selectedSize.label,
-            price: item.selectedSize.price
-          } : null,
-          selectedAddons: item.selectedAddons.map(addon => ({
-            id: addon.id,
-            label: addon.label,
-            price_delta: addon.price_delta
-          })),
-          selectedColor: item.selectedColor
-        };
-      });
+            selectedSize: item.selectedSize ? {
+              id: item.selectedSize.id,
+              label: item.selectedSize.label,
+              price: item.selectedSize.price
+            } : null,
+            selectedAddons: item.selectedAddons.map(addon => ({
+              id: addon.id,
+              label: addon.label,
+              price_delta: addon.price_delta
+            })),
+            selectedColor: item.selectedColor
+          };
+        });
 
       const deliveryInfo = {
         fullName: userProfile.displayName,
@@ -263,9 +269,9 @@ ${'='.repeat(30)}
       console.log('Order data to save:', orderData);
 
       // Prepare quantity deductions for all cart items
-      const deductions = cart.map(item => ({ 
-        productId: item.product.id, 
-        quantityToDeduct: item.quantity 
+      const deductions = cart.map(item => ({
+        productId: item.product.id,
+        quantityToDeduct: item.quantity
       }));
 
       // Create order and update quantities atomically in Firebase
@@ -283,7 +289,7 @@ ${'='.repeat(30)}
           const docRef = await addDoc(collection(db, 'orders'), orderData);
           orderId = docRef.id;
           console.log('✅ Order saved with ID:', orderId);
-          
+
           // Update quantities separately (not atomic, but better than nothing)
           try {
             if (typeof updateProductQuantitiesAtomically === 'function') {
@@ -297,7 +303,7 @@ ${'='.repeat(30)}
         }
       } catch (err: any) {
         console.error('❌ Error creating order atomically:', err);
-        
+
         // Try to save order without quantity update (better than losing the order)
         try {
           const docRef = await addDoc(collection(db, 'orders'), orderData);
@@ -310,20 +316,20 @@ ${'='.repeat(30)}
           throw new Error('فشل في حفظ الطلب. يرجى المحاولة مرة أخرى.');
         }
       }
-      
+
       toast.success("تم حفظ الطلب بنجاح");
-      
+
       // Send WhatsApp message with order details
       await sendWhatsAppOrderMessage(orderData, deliveryInfo);
-      
+
       // Clear cart after successful order (skip restore because quantities are already updated in Firebase)
       await clearCart(true);
-      
+
       // Reload products to ensure we have the latest data
       console.log('Reloading products after order completion...');
       await useStore.getState().loadProducts();
       console.log('Products reloaded successfully');
-      
+
       // Navigate to orders page
       navigate("/orders");
     } catch (error) {
@@ -377,22 +383,22 @@ ${'='.repeat(30)}
               {/* Empty Cart Icon */}
               <div className="mx-auto mb-6">
                 <div className="bg-gray-100 rounded-full p-6 w-20 h-20 mx-auto flex items-center justify-center">
-                  <svg 
-                    className="w-10 h-10 text-gray-400" 
-                    fill="none" 
-                    stroke="currentColor" 
+                  <svg
+                    className="w-10 h-10 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
                     viewBox="0 0 24 24"
                   >
-                    <path 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
-                      strokeWidth={2} 
-                      d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m6-5v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01" 
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m6-5v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01"
                     />
                   </svg>
                 </div>
               </div>
-              
+
               {/* Empty Cart Text */}
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
                 {t("cart.emptyTitle")}
@@ -400,10 +406,10 @@ ${'='.repeat(30)}
               <p className="text-gray-600 mb-8">
                 {t("cart.emptyDescription")}
               </p>
-              
+
               {/* Action Buttons */}
               <div className="space-y-3">
-                <Button 
+                <Button
                   onClick={() => navigate("/products")}
                   className="w-full bg-primary hover:bg-primary/90 text-white"
                   size="lg"
@@ -411,8 +417,8 @@ ${'='.repeat(30)}
                   <ShoppingBag className="w-5 h-5 mr-2" />
                   {t("cart.startShopping")}
                 </Button>
-                
-                <Button 
+
+                <Button
                   onClick={() => navigate("/")}
                   variant="outline"
                   className="w-full"
@@ -444,18 +450,18 @@ ${'='.repeat(30)}
         price: item.unitFinalPrice,
         totalPrice: item.totalPrice,
         image: item.product.images[0],
-      selectedSize: item.selectedSize ? {
-        id: item.selectedSize.id,
-        label: item.selectedSize.label,
-        price: item.selectedSize.price
-      } : null,
-      selectedAddons: item.selectedAddons.map(addon => ({
-        id: addon.id,
-        label: addon.label,
-        price_delta: addon.price_delta
-      })),
-      selectedColor: item.selectedColor
-    }));
+        selectedSize: item.selectedSize ? {
+          id: item.selectedSize.id,
+          label: item.selectedSize.label,
+          price: item.selectedSize.price
+        } : null,
+        selectedAddons: item.selectedAddons.map(addon => ({
+          id: addon.id,
+          label: addon.label,
+          price_delta: addon.price_delta
+        })),
+        selectedColor: item.selectedColor
+      }));
 
     const deliveryInfo = {
       fullName: data.fullName,
@@ -527,9 +533,9 @@ ${'='.repeat(30)}
     // Prepare quantity deductions for all cart items
     const deductions = cart
       .filter((item) => item.product && item.product.id) // Filter out invalid items
-      .map(item => ({ 
-        productId: item.product.id, 
-        quantityToDeduct: item.quantity 
+      .map(item => ({
+        productId: item.product.id,
+        quantityToDeduct: item.quantity
       }));
 
     // Create order and update quantities atomically in Firebase
@@ -547,7 +553,7 @@ ${'='.repeat(30)}
         const docRef = await addDoc(collection(db, 'orders'), orderData);
         orderId = docRef.id;
         console.log('✅ Order saved with ID:', orderId);
-        
+
         // Update quantities separately (not atomic, but better than nothing)
         try {
           if (typeof updateProductQuantitiesAtomically === 'function') {
@@ -559,11 +565,11 @@ ${'='.repeat(30)}
           // Continue anyway - order is saved
         }
       }
-      
+
       toast.success('تم حفظ الطلب بنجاح');
     } catch (error: any) {
       console.error('❌ Error saving order from delivery form:', error);
-      
+
       // Try to save order without quantity update (better than losing the order)
       try {
         const docRef = await addDoc(collection(db, 'orders'), orderData);
@@ -874,12 +880,12 @@ ${'='.repeat(30)}
                     id="phoneNumber"
                     type="tel"
                     placeholder="01XXXXXXXXX"
-                    {...register('phoneNumber', { 
+                    {...register('phoneNumber', {
                       required: 'هذا الحقل إلزامي',
-                      pattern: { 
-                        value: /^01[0-9]{9,}$/g, 
-                        message: 'رقم الهاتف غير صحيح! يجب أن يبدأ بـ 01 ويحتوي على 11 رقم' 
-                      } 
+                      pattern: {
+                        value: /^01[0-9]{9,}$/g,
+                        message: 'رقم الهاتف غير صحيح! يجب أن يبدأ بـ 01 ويحتوي على 11 رقم'
+                      }
                     })}
                     className={errors.phoneNumber ? 'border-red-500 focus-visible:ring-red-500' : ''}
                   />
@@ -1063,7 +1069,7 @@ async function clearCart(): Promise<void> {
     .map((item: any) => ({
       productId: item.product.id,
       quantityToRestore: item.quantity,
-  }));
+    }));
   const negativeDeductPayload = currentCart
     .filter((item: any) => item.product && item.product.id) // Filter out invalid items
     .map((item: any) => ({

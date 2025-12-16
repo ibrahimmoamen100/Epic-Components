@@ -11,9 +11,11 @@ import { ProductTable } from "@/components/ProductTable";
 import { EditProductModal } from "@/components/EditProductModal";
 import { vendorsService } from "@/lib/firebase";
 import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { VendorProfile } from "@/components/VendorProfile";
 
 const VendorDashboard = () => {
-  const { session, loading: authLoading, isAuthenticated, logout } = useVendorAuth();
+  const { session, loading: authLoading, isAuthenticated, logout, refreshSession } = useVendorAuth();
   const navigate = useNavigate();
   const { products, addProduct, updateProduct, loadProducts, loading: productsLoading } =
     useStore();
@@ -161,110 +163,133 @@ const VendorDashboard = () => {
           </Button>
         </header>
 
-        {/* Vendor stats */}
-        <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="bg-slate-900 border-slate-800 p-4">
-            <p className="text-sm text-slate-400 mb-1">
-              اسم البائع
-            </p>
-            <p className="text-lg font-semibold">
-              {vendor.name}
-            </p>
-          </Card>
+        <Tabs defaultValue="dashboard" dir="rtl" className="w-full space-y-6">
+          <TabsList className="bg-slate-900 border border-slate-800 p-1">
+            <TabsTrigger value="dashboard" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              لوحة التحكم
+            </TabsTrigger>
+            <TabsTrigger value="profile" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              الملف الشخصي
+            </TabsTrigger>
+          </TabsList>
 
-          <Card className="bg-slate-900 border-slate-800 p-4">
-            <p className="text-sm text-slate-400 mb-1">
-              رقم الواتساب
-            </p>
-            <p className="text-lg font-semibold">
-              {vendor.phoneNumber}
-            </p>
-          </Card>
+          <TabsContent value="dashboard" className="space-y-8">
+            {/* Vendor stats */}
+            <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card className="bg-slate-900 border-slate-800 p-4">
+                <p className="text-sm text-slate-400 mb-1">
+                  اسم البائع
+                </p>
+                <p className="text-lg font-semibold">
+                  {vendor.name}
+                </p>
+              </Card>
 
-          <Card className="bg-slate-900 border-slate-800 p-4">
-            <p className="text-sm text-slate-400 mb-1">
-              الحد الأقصى للمنتجات
-            </p>
-            <p className="text-lg font-semibold">
-              {limit} منتج
-            </p>
-          </Card>
+              <Card className="bg-slate-900 border-slate-800 p-4">
+                <p className="text-sm text-slate-400 mb-1">
+                  رقم الواتساب
+                </p>
+                <p className="text-lg font-semibold">
+                  {vendor.phoneNumber}
+                </p>
+              </Card>
 
-          <Card className="bg-slate-900 border-slate-800 p-4">
-            <p className="text-sm text-slate-400 mb-1">
-              عدد منتجاتك الحالية
-            </p>
-            <p className="text-lg font-semibold">
-              {currentCount} منتج
-            </p>
-          </Card>
-        </section>
+              <Card className="bg-slate-900 border-slate-800 p-4">
+                <p className="text-sm text-slate-400 mb-1">
+                  الحد الأقصى للمنتجات
+                </p>
+                <p className="text-lg font-semibold">
+                  {limit} منتج
+                </p>
+              </Card>
 
-        {/* Add product form (vendor-limited) */}
-        <section className="space-y-4">
-          <Card className="bg-slate-900 border-slate-800 p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold">
-                إضافة منتج جديد
-              </h2>
-              {hasReachedLimit && (
-                <span className="text-sm text-red-400">
-                  وصلت إلى الحد الأقصى للمنتجات المسموح بها – تواصل مع
-                  المسؤول لزيادة الحد
-                </span>
+              <Card className="bg-slate-900 border-slate-800 p-4">
+                <p className="text-sm text-slate-400 mb-1">
+                  عدد منتجاتك الحالية
+                </p>
+                <p className="text-lg font-semibold">
+                  {currentCount} منتج
+                </p>
+              </Card>
+            </section>
+
+            {/* Add product form (vendor-limited) */}
+            <section className="space-y-4">
+              <Card className="bg-slate-900 border-slate-800 p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold">
+                    إضافة منتج جديد
+                  </h2>
+                  {hasReachedLimit && (
+                    <span className="text-sm text-red-400">
+                      وصلت إلى الحد الأقصى للمنتجات المسموح بها – تواصل مع
+                      المسؤول لزيادة الحد
+                    </span>
+                  )}
+                </div>
+                <div className={hasReachedLimit ? "opacity-50 pointer-events-none" : ""}>
+                  <ProductForm
+                    onSubmit={handleVendorAddProduct as any}
+                    mode="vendor"
+                    lockVendor
+                    defaultVendorId={vendorId || undefined}
+                    defaultVendorName={vendorName}
+                    defaultVendorLogoUrl={vendorLogoUrl}
+                    defaultVendorLocation={vendorLocation}
+                    defaultVendorPhone={session.vendor.phoneNumber}
+                  />
+                </div>
+              </Card>
+            </section>
+
+            {/* Vendor products table */}
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold">
+                  منتجاتك
+                </h2>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="بحث باسم المنتج أو ID..."
+                  className="w-full max-w-xs bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              {productsLoading ? (
+                <div className="flex items-center justify-center p-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <span className="ml-2 text-muted-foreground">
+                    جاري تحميل المنتجات...
+                  </span>
+                </div>
+              ) : vendorProducts.length === 0 ? (
+                <Card className="bg-slate-900 border-slate-800 p-6 text-center text-slate-300">
+                  لا توجد منتجات بعد، ابدأ بإضافة أول منتج لك من النموذج أعلاه.
+                </Card>
+              ) : (
+                <ProductTable
+                  products={vendorProducts}
+                  searchQuery={searchQuery}
+                  onEdit={handleEdit}
+                  onDelete={() => {
+                    toast.error("لا يمكن للبائع حذف المنتج في هذه المرحلة (سيتم تفعيلها لاحقاً)");
+                  }}
+                />
               )}
-            </div>
-            <div className={hasReachedLimit ? "opacity-50 pointer-events-none" : ""}>
-              <ProductForm
-                onSubmit={handleVendorAddProduct as any}
-                mode="vendor"
-                lockVendor
-                defaultVendorId={vendorId || undefined}
-                defaultVendorName={vendorName}
-                defaultVendorLogoUrl={vendorLogoUrl}
-                defaultVendorLocation={vendorLocation}
-                defaultVendorPhone={session.vendor.phoneNumber}
-              />
-            </div>
-          </Card>
-        </section>
 
-        {/* Vendor products table */}
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">
-              منتجاتك
-            </h2>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="بحث باسم المنتج أو ID..."
-              className="w-full max-w-xs bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-          {productsLoading ? (
-            <div className="flex items-center justify-center p-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              <span className="ml-2 text-muted-foreground">
-                جاري تحميل المنتجات...
-              </span>
-            </div>
-          ) : vendorProducts.length === 0 ? (
-            <Card className="bg-slate-900 border-slate-800 p-6 text-center text-slate-300">
-              لا توجد منتجات بعد، ابدأ بإضافة أول منتج لك من النموذج أعلاه.
-            </Card>
-          ) : (
-            <ProductTable
-              products={vendorProducts}
-              searchQuery={searchQuery}
-              onEdit={handleEdit}
-              onDelete={() => {
-                toast.error("لا يمكن للبائع حذف المنتج في هذه المرحلة (سيتم تفعيلها لاحقاً)");
-              }}
-            />
-          )}
-        </section>
+            </section>
+          </TabsContent>
+
+          <TabsContent value="profile">
+            {session?.vendor && (
+              <VendorProfile
+                vendor={session.vendor}
+                onUpdate={refreshSession}
+              />
+            )}
+          </TabsContent>
+        </Tabs>
 
         {/* Edit product modal (vendor) */}
         <EditProductModal

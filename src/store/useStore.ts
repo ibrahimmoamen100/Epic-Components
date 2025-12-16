@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { Product, Filter, CartItem, ProductSize, ProductAddon } from "@/types/product";
-import { productsService, updateProductQuantitiesAtomically, restoreProductQuantitiesAtomically } from "@/lib/firebase";
+import { Vendor } from "@/types/vendor";
+import { productsService, vendorsService, updateProductQuantitiesAtomically, restoreProductQuantitiesAtomically } from "@/lib/firebase";
 import { persist } from "zustand/middleware";
 
 // Helper function to calculate discounted price
@@ -8,7 +9,7 @@ const calculateDiscountedPrice = (product: Product): number => {
   if (product.specialOffer && product.offerEndsAt) {
     const now = new Date();
     const offerEndDate = new Date(product.offerEndsAt);
-    
+
     // Check if offer is still active
     if (now < offerEndDate) {
       // Use discountPrice if available, otherwise fallback to percentage calculation
@@ -24,6 +25,7 @@ const calculateDiscountedPrice = (product: Product): number => {
 
 interface StoreState {
   products: Product[];
+  vendors: Vendor[];
   cart: CartItem[];
   filters: Filter;
   loading: boolean;
@@ -33,7 +35,7 @@ interface StoreState {
   removeFromCart: (productId: string, selectedSizeId?: string | null) => void;
   updateCartItemQuantity: (productId: string, quantity: number, selectedSizeId?: string | null) => void;
   setFilters: (filters: Filter) => void;
-  clearCart: () => void;
+  clearCart: (skipRestore?: boolean) => Promise<void>;
   addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
   updateProduct: (product: Product) => Promise<void>;
   deleteProduct: (productId: string) => Promise<void>;
@@ -45,12 +47,14 @@ interface StoreState {
   getCartTotal: () => number;
   getCartItemPrice: (cartItem: CartItem) => number;
   updateProductQuantity: (productId: string, newQuantity: number) => Promise<void>;
+  loadVendors: () => Promise<void>;
 }
 
 export const useStore = create<StoreState>()(
   persist(
     (set, get) => ({
       products: [],
+      vendors: [],
       cart: [],
       filters: {
         search: undefined,
@@ -62,8 +66,8 @@ export const useStore = create<StoreState>()(
         minPrice: undefined,
         maxPrice: undefined,
         supplier: undefined,
-      vendorId: undefined,
-      vendorName: undefined,
+        vendorId: undefined,
+        vendorName: undefined,
         processorName: undefined,
         dedicatedGraphicsName: undefined,
         hasDedicatedGraphics: undefined,
@@ -82,23 +86,23 @@ export const useStore = create<StoreState>()(
 
         // Calculate final price
         let unitFinalPrice = product.price;
-        
+
         // If sizes are available and one is selected, use that price
         if (selectedSize) {
           unitFinalPrice = selectedSize.price;
         }
-        
+
         // Add addon prices
         if (selectedAddons && selectedAddons.length > 0) {
           selectedAddons.forEach(addon => {
             unitFinalPrice += addon.price_delta;
           });
         }
-        
+
         // Apply special offer discount if available
-        if (product.specialOffer && 
-            product.offerEndsAt &&
-            new Date(product.offerEndsAt) > new Date()) {
+        if (product.specialOffer &&
+          product.offerEndsAt &&
+          new Date(product.offerEndsAt) > new Date()) {
           if (product.discountPrice) {
             // Use the discount price as recorded in admin
             unitFinalPrice = product.discountPrice;
@@ -117,12 +121,12 @@ export const useStore = create<StoreState>()(
         set((state) => {
           // Filter out any invalid cart items first
           const validCart = state.cart.filter(item => item.product && item.product.id);
-          
+
           // For products with sizes and colors, treat different combinations as different items
           const existingItem = validCart.find(
-            (item) => item.product.id === product.id && 
-                     (selectedSize ? item.selectedSize?.id === selectedSize.id : !item.selectedSize) &&
-                     (selectedColor ? item.selectedColor === selectedColor : !item.selectedColor)
+            (item) => item.product.id === product.id &&
+              (selectedSize ? item.selectedSize?.id === selectedSize.id : !item.selectedSize) &&
+              (selectedColor ? item.selectedColor === selectedColor : !item.selectedColor)
           );
 
           if (existingItem) {
@@ -134,25 +138,25 @@ export const useStore = create<StoreState>()(
 
             return {
               cart: validCart.map((item) =>
-                item.product.id === product.id && 
-                (selectedSize ? item.selectedSize?.id === selectedSize.id : !item.selectedSize) &&
-                (selectedColor ? item.selectedColor === selectedColor : !item.selectedColor)
-                  ? { 
-                      ...item, 
-                      quantity: item.quantity + quantity,
-                      totalPrice: item.unitFinalPrice * (item.quantity + quantity)
-                    }
+                item.product.id === product.id &&
+                  (selectedSize ? item.selectedSize?.id === selectedSize.id : !item.selectedSize) &&
+                  (selectedColor ? item.selectedColor === selectedColor : !item.selectedColor)
+                  ? {
+                    ...item,
+                    quantity: item.quantity + quantity,
+                    totalPrice: item.unitFinalPrice * (item.quantity + quantity)
+                  }
                   : item
               ),
               // Update product quantity in products array
               products: state.products.map((p) =>
                 p.id === product.id
                   ? {
-                      ...p,
-                      wholesaleInfo: p.wholesaleInfo
-                        ? { ...p.wholesaleInfo, quantity: newQuantity }
-                        : p.wholesaleInfo
-                    }
+                    ...p,
+                    wholesaleInfo: p.wholesaleInfo
+                      ? { ...p.wholesaleInfo, quantity: newQuantity }
+                      : p.wholesaleInfo
+                  }
                   : p
               ),
             };
@@ -175,11 +179,11 @@ export const useStore = create<StoreState>()(
             products: state.products.map((p) =>
               p.id === product.id
                 ? {
-                    ...p,
-                    wholesaleInfo: p.wholesaleInfo
-                      ? { ...p.wholesaleInfo, quantity: newQuantity }
-                      : p.wholesaleInfo
-                  }
+                  ...p,
+                  wholesaleInfo: p.wholesaleInfo
+                    ? { ...p.wholesaleInfo, quantity: newQuantity }
+                    : p.wholesaleInfo
+                }
                 : p
             ),
           };
@@ -193,7 +197,7 @@ export const useStore = create<StoreState>()(
           console.error('Error updating product quantities in Firebase:', error);
           // Optionally show a toast or handle the error
         });
-        
+
         // No need to reload products since we already updated the local state
       },
       removeFromCart: async (productId) => {
@@ -219,11 +223,11 @@ export const useStore = create<StoreState>()(
           const updatedProducts = state.products.map((p) =>
             p.id === productId
               ? {
-                  ...p,
-                  wholesaleInfo: p.wholesaleInfo
-                    ? { ...p.wholesaleInfo, quantity: (p.wholesaleInfo.quantity || 0) + cartQuantity }
-                    : p.wholesaleInfo
-                }
+                ...p,
+                wholesaleInfo: p.wholesaleInfo
+                  ? { ...p.wholesaleInfo, quantity: (p.wholesaleInfo.quantity || 0) + cartQuantity }
+                  : p.wholesaleInfo
+              }
               : p
           );
 
@@ -232,7 +236,7 @@ export const useStore = create<StoreState>()(
             products: updatedProducts
           };
         });
-        
+
         // No need to reload products since we already updated the local state
       },
       updateCartItemQuantity: async (productId, quantity) => {
@@ -258,11 +262,11 @@ export const useStore = create<StoreState>()(
               products: state.products.map((p) =>
                 p.id === productId
                   ? {
-                      ...p,
-                      wholesaleInfo: p.wholesaleInfo
-                        ? { ...p.wholesaleInfo, quantity: newQuantity }
-                        : p.wholesaleInfo
-                    }
+                    ...p,
+                    wholesaleInfo: p.wholesaleInfo
+                      ? { ...p.wholesaleInfo, quantity: newQuantity }
+                      : p.wholesaleInfo
+                  }
                   : p
               ),
             }));
@@ -280,11 +284,11 @@ export const useStore = create<StoreState>()(
             products: state.products.map((p) =>
               p.id === productId
                 ? {
-                    ...p,
-                    wholesaleInfo: p.wholesaleInfo
-                      ? { ...p.wholesaleInfo, quantity: newQuantity }
-                      : p.wholesaleInfo
-                  }
+                  ...p,
+                  wholesaleInfo: p.wholesaleInfo
+                    ? { ...p.wholesaleInfo, quantity: newQuantity }
+                    : p.wholesaleInfo
+                }
                 : p
             ),
           }));
@@ -307,11 +311,11 @@ export const useStore = create<StoreState>()(
           products: state.products.map((p) =>
             p.id === productId
               ? {
-                  ...p,
-                  wholesaleInfo: p.wholesaleInfo
-                    ? { ...p.wholesaleInfo, quantity: newQuantity }
-                    : p.wholesaleInfo
-                }
+                ...p,
+                wholesaleInfo: p.wholesaleInfo
+                  ? { ...p.wholesaleInfo, quantity: newQuantity }
+                  : p.wholesaleInfo
+              }
               : p
           ),
         }));
@@ -319,7 +323,7 @@ export const useStore = create<StoreState>()(
       setFilters: (filters) => set({ filters }),
       clearCart: async (skipRestore = false) => {
         const cart = get().cart;
-        
+
         // Restore all quantities to Firebase only if not skipping (e.g., after order completion)
         if (!skipRestore) {
           for (const item of cart) {
@@ -331,7 +335,7 @@ export const useStore = create<StoreState>()(
             if (product) {
               const currentQuantity = product.wholesaleInfo?.quantity || 0;
               const newQuantity = currentQuantity + item.quantity;
-              
+
               await productsService.updateProduct(item.product.id, {
                 ...product,
                 wholesaleInfo: product.wholesaleInfo
@@ -341,7 +345,7 @@ export const useStore = create<StoreState>()(
             }
           }
         }
-        
+
         set({ cart: [] });
       },
       getCartTotal: () => {
@@ -350,7 +354,7 @@ export const useStore = create<StoreState>()(
           .filter((item) => item.product && item.product.id) // Filter out invalid items
           .reduce((total, item) => {
             return total + item.totalPrice;
-        }, 0);
+          }, 0);
       },
       getCartItemPrice: (cartItem: CartItem) => {
         return cartItem.unitFinalPrice;
@@ -387,13 +391,13 @@ export const useStore = create<StoreState>()(
           await productsService.deleteProduct(productId);
           const products = get().products;
           const cart = get().cart;
-          
+
           // Remove the product from products array
           const updatedProducts = products.filter((p) => p.id !== productId);
-          
+
           // Also remove the product from cart if it exists
           const updatedCart = cart.filter((item) => item.product && item.product.id !== productId);
-          
+
           set({
             products: updatedProducts,
             cart: updatedCart,
@@ -425,7 +429,7 @@ export const useStore = create<StoreState>()(
         try {
           const products = await productsService.getAllProducts();
           set({ products, error: null });
-          
+
           // Clean cart from deleted products after loading
           setTimeout(() => {
             get().cleanCartFromDeletedProducts();
@@ -445,6 +449,15 @@ export const useStore = create<StoreState>()(
           throw error;
         }
       },
+      loadVendors: async () => {
+        try {
+          const vendors = await vendorsService.getAllVendors();
+          set({ vendors });
+        } catch (error) {
+          console.error('Error loading vendors:', error);
+          // Don't set global error to avoid blocking UI if vendors fail to load
+        }
+      },
       getProductsByCategory: async (category: string) => {
         try {
           return await productsService.getProductsByCategory(category);
@@ -457,7 +470,7 @@ export const useStore = create<StoreState>()(
       cleanCartFromDeletedProducts: () => {
         const products = get().products;
         const cart = get().cart;
-        
+
         // Remove cart items that reference deleted products or have undefined product
         const validCartItems = cart.filter((item) => {
           // Check if item.product exists and has an id
@@ -467,7 +480,7 @@ export const useStore = create<StoreState>()(
           // Check if product still exists in products list
           return products.some((product) => product && product.id === item.product.id);
         });
-        
+
         if (validCartItems.length !== cart.length) {
           set({ cart: validCartItems });
           console.log(`تم تنظيف ${cart.length - validCartItems.length} منتج محذوف من السلة`);
@@ -490,7 +503,7 @@ export const useStore = create<StoreState>()(
           console.log('Store: Calling Firebase updateProduct...');
           await productsService.updateProduct(productId, updatedProduct);
           console.log('Store: Firebase updateProduct completed successfully');
-          
+
           // Update local state
           const products = get().products;
           const updatedProducts = products.map((p) =>

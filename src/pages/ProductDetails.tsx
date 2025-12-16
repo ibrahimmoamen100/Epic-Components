@@ -78,6 +78,7 @@ const ProductDetails = () => {
   const getCartTotal = useStore((state) => state.getCartTotal);
   const getCartItemPrice = useStore((state) => state.getCartItemPrice);
   const updateProductQuantity = useStore((state) => state.updateProductQuantity);
+  const vendors = useStore((state) => state.vendors);
 
   // Find current product
   const product = products.find((p) => p.id === id);
@@ -554,8 +555,8 @@ const ProductDetails = () => {
                           }
                         }}
                         className={`group relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-all duration-200 ${isSelected
-                            ? "border-primary ring-1 ring-primary/30 shadow-md"
-                            : "border-gray-200 hover:border-gray-300 hover:shadow-sm"
+                          ? "border-primary ring-1 ring-primary/30 shadow-md"
+                          : "border-gray-200 hover:border-gray-300 hover:shadow-sm"
                           }`}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
@@ -679,34 +680,46 @@ const ProductDetails = () => {
             </div>
 
             {/* Vendor Info */}
-            {product.vendorName && (
-              <Card className="bg-indigo-50 border-indigo-100 p-4">
-                <div className="flex items-center gap-4">
-                  {product.vendorLogoUrl ? (
-                    <img
-                      src={product.vendorLogoUrl}
-                      alt={product.vendorName}
-                      className="h-12 w-12 rounded-full object-cover border border-indigo-200"
-                    />
-                  ) : (
-                    <div className="h-12 w-12 rounded-full bg-indigo-200 text-indigo-800 flex items-center justify-center font-bold">
-                      {product.vendorName[0]}
-                    </div>
-                  )}
-                  <div className="flex-1">
-                    <p className="text-sm text-indigo-700">البائع</p>
-                    <p className="text-lg font-semibold text-indigo-900">
-                      {product.vendorName}
-                    </p>
-                    {product.vendorLocation && (
-                      <p className="text-sm text-indigo-700">
-                        📍 {product.vendorLocation}
-                      </p>
+            {/* Vendor Info */}
+            {(() => {
+              // Resolve vendor dynamically
+              const vendor = product.vendorId ? vendors.find(v => v.id === product.vendorId) : null;
+
+              const displayVendorName = vendor?.name || product.vendorName;
+              const displayVendorLogo = vendor?.logoUrl || product.vendorLogoUrl;
+              const displayVendorLocation = vendor?.storeLocation || product.vendorLocation;
+
+              if (!displayVendorName) return null;
+
+              return (
+                <Card className="bg-indigo-50 border-indigo-100 p-4">
+                  <div className="flex items-center gap-4">
+                    {displayVendorLogo ? (
+                      <img
+                        src={displayVendorLogo}
+                        alt={displayVendorName}
+                        className="h-12 w-12 rounded-full object-cover border border-indigo-200"
+                      />
+                    ) : (
+                      <div className="h-12 w-12 rounded-full bg-indigo-200 text-indigo-800 flex items-center justify-center font-bold">
+                        {displayVendorName[0]}
+                      </div>
                     )}
+                    <div className="flex-1">
+                      <p className="text-sm text-indigo-700">البائع</p>
+                      <p className="text-lg font-semibold text-indigo-900">
+                        {displayVendorName}
+                      </p>
+                      {displayVendorLocation && (
+                        <p className="text-sm text-indigo-700">
+                          📍 {displayVendorLocation}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </Card>
-            )}
+                </Card>
+              );
+            })()}
 
             <Separator />
 
@@ -728,8 +741,8 @@ const ProductDetails = () => {
                         key={color}
                         onClick={() => setSelectedColor(color)}
                         className={`relative group ${selectedColor === color
-                            ? 'ring-2 ring-primary ring-offset-2'
-                            : 'ring-1 ring-gray-200 hover:ring-gray-300'
+                          ? 'ring-2 ring-primary ring-offset-2'
+                          : 'ring-1 ring-gray-200 hover:ring-gray-300'
                           } rounded-full p-1 transition-all duration-200`}
                         title={colorInfo.name}
                       >
