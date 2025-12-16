@@ -122,6 +122,7 @@ export function ProductTable({
               <TableHead className="w-[120px] text-center">التصنيف</TableHead>
               {/* <TableHead className="w-[120px] text-center">الألوان</TableHead> */}
               <TableHead className="w-[120px] text-center">المورد</TableHead>
+              <TableHead className="w-[140px] text-center">البائع</TableHead>
               <TableHead className="w-[120px] text-center">الكمية</TableHead>
               <TableHead className="w-[150px] text-center">
                 العرض الخاص
@@ -242,6 +243,15 @@ export function ProductTable({
                     {product.wholesaleInfo?.supplierName ||
                       DEFAULT_SUPPLIER.name}
                   </Badge>
+                </TableCell>
+                <TableCell className="text-center">
+                  {product.vendorName ? (
+                    <Badge variant="secondary" className="font-normal">
+                      {product.vendorName}
+                    </Badge>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">-</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-center">
                   <div className="flex flex-col items-center gap-1">

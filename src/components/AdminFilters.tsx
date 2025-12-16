@@ -1,4 +1,5 @@
 import { useStore } from "@/store/useStore";
+import { Vendor } from "@/types/vendor";
 import {
   Select,
   SelectContent,
@@ -33,6 +34,7 @@ interface AdminFiltersProps {
     category?: string;
     brand?: string;
     supplier?: string;
+    vendorId?: string;
     processorName?: string;
     dedicatedGraphicsName?: string;
     hasDedicatedGraphics?: boolean;
@@ -42,12 +44,14 @@ interface AdminFiltersProps {
   };
   onFilterChange: (filters: any) => void;
   uniqueSuppliers: string[];
+  vendors?: Vendor[];
 }
 
 export function AdminFilters({
   filters,
   onFilterChange,
   uniqueSuppliers,
+  vendors = [],
 }: AdminFiltersProps) {
   const products = useStore((state) => state.products) || [];
   const { t } = useTranslation();
@@ -100,6 +104,7 @@ export function AdminFilters({
               category: undefined,
               brand: undefined,
               supplier: undefined,
+                vendorId: undefined,
               isArchived: false,
               archivedStatus: "active",
               specialOffer: "all",
@@ -320,6 +325,35 @@ export function AdminFilters({
               {suppliers.map((supplier) => (
                 <SelectItem key={supplier} value={supplier}>
                   {supplier}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Vendor */}
+        <div className="space-y-2 bg-secondary/10 p-4 rounded-lg">
+          <Label className="flex items-center gap-2 text-base">
+            <Tag className="h-4 w-4 text-primary" />
+            البائع
+          </Label>
+          <Select
+            value={filters.vendorId || "all"}
+            onValueChange={(value) =>
+              onFilterChange({
+                ...filters,
+                vendorId: value === "all" ? undefined : value,
+              })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="اختر البائع" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">جميع البائعين</SelectItem>
+              {vendors.map((v) => (
+                <SelectItem key={v.id} value={v.id || ""}>
+                  {v.name}
                 </SelectItem>
               ))}
             </SelectContent>

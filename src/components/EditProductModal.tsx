@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Product } from "@/types/product";
+import { Vendor } from "@/types/vendor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -109,6 +110,9 @@ interface EditProductModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (product: Product) => void;
+  availableVendors?: Vendor[];
+  mode?: "admin" | "vendor";
+  lockVendor?: boolean;
 }
 
 export function EditProductModal({
@@ -116,6 +120,9 @@ export function EditProductModal({
   open,
   onOpenChange,
   onSave,
+  availableVendors = [],
+  mode = "admin",
+  lockVendor = false,
 }: EditProductModalProps) {
   const { products } = useStore();
   const { t } = useTranslation();
@@ -135,6 +142,22 @@ export function EditProductModal({
   const [showProcessorInfo, setShowProcessorInfo] = useState(false);
   const [showDedicatedGraphicsInfo, setShowDedicatedGraphicsInfo] = useState(false);
   const [showDisplayInfo, setShowDisplayInfo] = useState(false);
+
+  const handleVendorChange = (vendorId: string) => {
+    const selected = availableVendors.find((v) => v.id === vendorId);
+    setFormData((prev: any) =>
+      prev
+        ? {
+            ...prev,
+            vendorId: vendorId || "",
+            vendorName: selected?.name || "",
+            vendorLogoUrl: selected?.logoUrl || "",
+            vendorLocation: selected?.storeLocation || "",
+            vendorPhone: selected?.phoneNumber || "",
+          }
+        : prev
+    );
+  };
 
   // Functions to manage sizes
   const addSize = () => {
@@ -581,6 +604,11 @@ export function EditProductModal({
         processor: processedProcessor,
         dedicatedGraphics: processedDedicatedGraphics,
         display: processedDisplay,
+        vendorId: formData.vendorId || product?.vendorId || undefined,
+        vendorName: formData.vendorName || product?.vendorName || undefined,
+        vendorLogoUrl: formData.vendorLogoUrl || product?.vendorLogoUrl || undefined,
+        vendorLocation: formData.vendorLocation || product?.vendorLocation || undefined,
+        vendorPhone: formData.vendorPhone || product?.vendorPhone || undefined,
         discountPercentage: formData.specialOffer && formData.discountPercentage
           ? Number(formData.discountPercentage)
           : null,
@@ -627,6 +655,43 @@ export function EditProductModal({
                 }
               />
             </div>
+            {mode === "admin" && !lockVendor && (
+              <div>
+                <label className="text-sm font-medium">Vendor</label>
+                <Select
+                  value={formData.vendorId || "none"}
+                  onValueChange={(value) => {
+                    if (value === "none") {
+                      handleVendorChange("");
+                    } else {
+                      handleVendorChange(value);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="shrink-0">
+                    <SelectValue placeholder="Select vendor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No vendor</SelectItem>
+                    {availableVendors.map((v) => (
+                      <SelectItem key={v.id} value={v.id || ""}>
+                        {v.name} ({v.productLimit ?? 5})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {mode === "vendor" && lockVendor && (
+              <div>
+                <label className="text-sm font-medium">Vendor</label>
+                <Input
+                  value={formData.vendorName || "Not set"}
+                  readOnly
+                  className="bg-muted"
+                />
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium">Brand *</label>
               {!showCustomBrand ? (

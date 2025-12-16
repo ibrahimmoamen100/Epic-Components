@@ -48,6 +48,14 @@ export function ActiveFilters() {
         return false;
       }
 
+      // Vendor filter
+      if (filters.vendorName && product.vendorName !== filters.vendorName) {
+        return false;
+      }
+      if (filters.vendorId && product.vendorId !== filters.vendorId) {
+        return false;
+      }
+
       // Color filter
       if (filters.color) {
         const matchesColor = product.color
@@ -194,6 +202,18 @@ export function ActiveFilters() {
         value: filters.brand,
         removeHandler: () => {
           setFilters({ ...filters, brand: undefined });
+        },
+      });
+    }
+
+    // Vendor filter
+    if (filters.vendorName) {
+      activeFilters.push({
+        key: "vendor",
+        label: "البائع",
+        value: filters.vendorName,
+        removeHandler: () => {
+          setFilters({ ...filters, vendorName: undefined, vendorId: undefined });
         },
       });
     }

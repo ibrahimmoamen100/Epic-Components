@@ -59,9 +59,19 @@ import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
 import { DEFAULT_SUPPLIER } from "@/constants/supplier";
 import { Card } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useNavigate } from "react-router-dom";
 import { useRevenue } from "@/hooks/useRevenue";
-import { salesService } from "@/lib/firebase";
+import { salesService, vendorsService } from "@/lib/firebase";
+import { Vendor } from "@/types/vendor";
 import { formatCurrency } from "@/utils/format";
 import { initializeAdmin, cleanupLocalAdminConfig } from "@/lib/adminAuth";
 
@@ -89,6 +99,9 @@ const Admin = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFilter, setDateFilter] = useState("all");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [vendorsLoading, setVendorsLoading] = useState<boolean>(false);
+  const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const { totalRevenue, revenueByStatus, orderStatistics, loading: revenueLoading, error: revenueError } = useRevenue();
   const [filters, setFilters] = useState({
     minPrice: undefined as number | undefined,
@@ -96,6 +109,7 @@ const Admin = () => {
     category: undefined as string | undefined,
     brand: undefined as string | undefined,
     supplier: undefined as string | undefined,
+    vendorId: undefined as string | undefined,
     processorName: undefined as string | undefined,
     dedicatedGraphicsName: undefined as string | undefined,
     hasDedicatedGraphics: undefined as boolean | undefined,
@@ -126,6 +140,24 @@ const Admin = () => {
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
+
+  // Load vendors list
+  const refreshVendors = useCallback(async () => {
+    try {
+      setVendorsLoading(true);
+      const list = await vendorsService.getAllVendors();
+      setVendors(list);
+    } catch (err) {
+      console.error("Failed to load vendors", err);
+      toast.error("فشل في تحميل البائعين");
+    } finally {
+      setVendorsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshVendors();
+  }, [refreshVendors]);
 
   // Clean up any locally stored admin config on mount for security
   useEffect(() => {
@@ -235,6 +267,9 @@ const Admin = () => {
           ? !product.wholesaleInfo?.supplierName
           : product.wholesaleInfo?.supplierName === filters.supplier);
 
+      const matchesVendor =
+        !filters.vendorId || product.vendorId === filters.vendorId;
+
       const matchesArchiveStatus =
         filters.archivedStatus === "all" ||
         (filters.archivedStatus === "archived" && product.isArchived) ||
@@ -261,6 +296,7 @@ const Admin = () => {
         matchesCategory &&
         matchesBrand &&
         matchesSupplier &&
+        matchesVendor &&
         matchesArchiveStatus &&
         matchesSpecialOffer &&
         matchesProcessorName &&
@@ -334,6 +370,44 @@ const Admin = () => {
       }
     },
     [updateProductQuantity]
+  );
+
+  const handleVendorSave = useCallback(
+    async (vendor: Vendor) => {
+      if (!vendor.id) return;
+      try {
+        await vendorsService.updateVendor(vendor.id, {
+          name: vendor.name,
+          phoneNumber: vendor.phoneNumber,
+          storeLocation: vendor.storeLocation,
+          productLimit: vendor.productLimit,
+          logoUrl: vendor.logoUrl || null,
+          username: vendor.username,
+          gmailAccount: vendor.gmailAccount,
+        });
+        toast.success("تم حفظ بيانات البائع");
+        setEditingVendor(null);
+        refreshVendors();
+      } catch (err) {
+        console.error("Failed to update vendor", err);
+        toast.error("فشل في تحديث بيانات البائع");
+      }
+    },
+    [refreshVendors]
+  );
+
+  const handleVendorDelete = useCallback(
+    async (vendorId: string) => {
+      try {
+        await vendorsService.deleteVendor(vendorId);
+        toast.success("تم حذف البائع");
+        refreshVendors();
+      } catch (err) {
+        console.error("Failed to delete vendor", err);
+        toast.error("فشل في حذف البائع");
+      }
+    },
+    [refreshVendors]
   );
 
   // Reset all pages data
@@ -793,7 +867,82 @@ const Admin = () => {
             )}
           </div>
 
-          <ProductForm onSubmit={addProduct} />
+        {/* Vendors Management */}
+        <div className="mt-12 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold">Vendors</h2>
+            <Button variant="outline" onClick={refreshVendors} disabled={vendorsLoading}>
+              إعادة تحميل
+            </Button>
+          </div>
+          <Card className="p-4 overflow-x-auto">
+            {vendorsLoading ? (
+              <div className="flex items-center justify-center p-6">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <span className="ml-2 text-muted-foreground">جاري تحميل البائعين...</span>
+              </div>
+            ) : vendors.length === 0 ? (
+              <div className="text-muted-foreground">لا يوجد بائعون حالياً.</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>البائع</TableHead>
+                    <TableHead>الهاتف</TableHead>
+                    <TableHead>الموقع</TableHead>
+                    <TableHead className="text-center">الحد الأقصى</TableHead>
+                    <TableHead className="text-center">عدد المنتجات الحالي</TableHead>
+                    <TableHead className="text-center">إجراءات</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {vendors.map((v) => {
+                    const count = products.filter((p) => p.vendorId === v.id).length;
+                    return (
+                      <TableRow key={v.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {v.logoUrl ? (
+                              <img src={v.logoUrl} alt={v.name} className="h-8 w-8 rounded-full object-cover" />
+                            ) : (
+                              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs">
+                                {v.name?.[0] || "V"}
+                              </div>
+                            )}
+                            <div className="flex flex-col">
+                              <span className="font-medium">{v.name}</span>
+                              <span className="text-xs text-muted-foreground">{v.username}</span>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{v.phoneNumber}</TableCell>
+                        <TableCell>{v.storeLocation}</TableCell>
+                        <TableCell className="text-center">{v.productLimit ?? 5}</TableCell>
+                        <TableCell className="text-center">{count}</TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex justify-center gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setEditingVendor(v)}>
+                              تعديل
+                            </Button>
+                            <Button variant="destructive" size="sm" onClick={() => handleVendorDelete(v.id!)}>
+                              حذف
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </Card>
+        </div>
+
+        <ProductForm
+          onSubmit={addProduct}
+          mode="admin"
+          availableVendors={vendors}
+        />
 
           <hr />
           <div className="mt-28 mb-8">
@@ -830,6 +979,7 @@ const Admin = () => {
                     filters={filters}
                     onFilterChange={setFilters}
                     uniqueSuppliers={uniqueSuppliers}
+                    vendors={vendors}
                   />
                 </CollapsibleContent>
               </Collapsible>
@@ -916,7 +1066,82 @@ const Admin = () => {
         open={!!editingProduct}
         onOpenChange={(open) => !open && setEditingProduct(null)}
         onSave={handleSaveEdit}
+        mode="admin"
+        availableVendors={vendors}
       />
+      {editingVendor && (
+        <Dialog open={!!editingVendor} onOpenChange={(open) => !open && setEditingVendor(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>تعديل البائع</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <Input
+                value={editingVendor.name}
+                onChange={(e) =>
+                  setEditingVendor({ ...editingVendor, name: e.target.value })
+                }
+                placeholder="اسم البائع"
+              />
+              <Input
+                value={editingVendor.phoneNumber}
+                onChange={(e) =>
+                  setEditingVendor({ ...editingVendor, phoneNumber: e.target.value })
+                }
+                placeholder="رقم الهاتف"
+              />
+              <Input
+                value={editingVendor.storeLocation}
+                onChange={(e) =>
+                  setEditingVendor({ ...editingVendor, storeLocation: e.target.value })
+                }
+                placeholder="الموقع"
+              />
+              <Input
+                type="number"
+                min={1}
+                value={editingVendor.productLimit ?? 5}
+                onChange={(e) =>
+                  setEditingVendor({
+                    ...editingVendor,
+                    productLimit: Number(e.target.value) || 0,
+                  })
+                }
+                placeholder="الحد الأقصى للمنتجات"
+              />
+              <Input
+                value={editingVendor.logoUrl || ""}
+                onChange={(e) =>
+                  setEditingVendor({ ...editingVendor, logoUrl: e.target.value })
+                }
+                placeholder="رابط الشعار (اختياري)"
+              />
+              <Input
+                value={editingVendor.username}
+                onChange={(e) =>
+                  setEditingVendor({ ...editingVendor, username: e.target.value })
+                }
+                placeholder="اسم المستخدم"
+              />
+              <Input
+                value={editingVendor.gmailAccount}
+                onChange={(e) =>
+                  setEditingVendor({ ...editingVendor, gmailAccount: e.target.value })
+                }
+                placeholder="حساب Gmail"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => setEditingVendor(null)}>
+                إلغاء
+              </Button>
+              <Button onClick={() => handleVendorSave(editingVendor)}>
+                حفظ
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

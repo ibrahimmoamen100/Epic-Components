@@ -102,6 +102,7 @@ export default function Products() {
     let matchesIntegratedGpu = true;
     let matchesDedicatedGpuBrand = true;
     let matchesDedicatedGpuModel = true;
+    let matchesVendor = true;
 
     // Exclude archived products
     if (product.isArchived) {
@@ -213,6 +214,12 @@ export default function Products() {
       );
     }
 
+    if (filters.vendorId) {
+      matchesVendor = product.vendorId === filters.vendorId;
+    } else if (filters.vendorName) {
+      matchesVendor = product.vendorName === filters.vendorName;
+    }
+
     // Removed supplier filter for customers
 
     return (
@@ -232,7 +239,8 @@ export default function Products() {
       matchesProcessorSeries &&
       matchesIntegratedGpu &&
       matchesDedicatedGpuBrand &&
-      matchesDedicatedGpuModel
+      matchesDedicatedGpuModel &&
+      matchesVendor
     );
   });
 

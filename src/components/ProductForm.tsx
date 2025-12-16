@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Product, ProductSchema } from "@/types/product";
+import { Vendor } from "@/types/vendor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -42,6 +43,14 @@ import { UnsavedChangesAlert } from "@/components/UnsavedChangesAlert";
 
 interface ProductFormProps {
   onSubmit: (product: Product) => void;
+  mode?: "admin" | "vendor";
+  availableVendors?: Vendor[];
+  defaultVendorId?: string;
+  defaultVendorName?: string;
+  defaultVendorLogoUrl?: string;
+  defaultVendorLocation?: string;
+  defaultVendorPhone?: string;
+  lockVendor?: boolean; // hide/disable vendor selection (for vendor dashboard)
 }
 
 // Common size options
@@ -122,7 +131,17 @@ const gamingTechnologiesOptions = [
   "FreeSync", "DirectX 12 Ultimate"
 ];
 
-export function ProductForm({ onSubmit }: ProductFormProps) {
+export function ProductForm({
+  onSubmit,
+  mode = "admin",
+  availableVendors = [],
+  defaultVendorId,
+  defaultVendorName,
+  defaultVendorLogoUrl,
+  defaultVendorLocation,
+  defaultVendorPhone,
+  lockVendor = false,
+}: ProductFormProps) {
   const { products } = useStore();
   const { t } = useTranslation();
 
@@ -209,6 +228,11 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
       quantity: 0,
       notes: "",
     },
+    vendorId: defaultVendorId || "",
+    vendorName: defaultVendorName || "",
+    vendorLogoUrl: defaultVendorLogoUrl || "",
+    vendorLocation: defaultVendorLocation || "",
+    vendorPhone: defaultVendorPhone || "",
   };
 
   // Use form persistence hook
@@ -239,6 +263,18 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
   const [showProcessorInfo, setShowProcessorInfo] = useState(false);
   const [showDedicatedGraphicsInfo, setShowDedicatedGraphicsInfo] = useState(false);
   const [showDisplayInfo, setShowDisplayInfo] = useState(false);
+
+  const handleVendorChange = (vendorId: string) => {
+    const selected = availableVendors.find((v) => v.id === vendorId);
+    setFormData((prev) => ({
+      ...prev,
+      vendorId: vendorId || "",
+      vendorName: selected?.name || "",
+      vendorLogoUrl: selected?.logoUrl || "",
+      vendorLocation: selected?.storeLocation || "",
+      vendorPhone: selected?.phoneNumber || "",
+    }));
+  };
 
   // Functions to manage sizes
   const addSize = () => {
@@ -580,6 +616,11 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
             quantity: finalQuantity,
           };
         })() : null,
+        vendorId: formData.vendorId || defaultVendorId || undefined,
+        vendorName: formData.vendorName || defaultVendorName || undefined,
+        vendorLogoUrl: formData.vendorLogoUrl || defaultVendorLogoUrl || undefined,
+        vendorLocation: formData.vendorLocation || defaultVendorLocation || undefined,
+        vendorPhone: formData.vendorPhone || defaultVendorPhone || undefined,
       };
 
       // Remove id from product data since Firebase will generate it
@@ -632,6 +673,55 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
             </div>
           )}
         </div>
+        {/* Vendor selection (Admin only) */}
+        {mode === "admin" && !lockVendor && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="text-sm font-medium">البائع</label>
+              <Select
+                value={formData.vendorId || "none"}
+                onValueChange={(value) => {
+                  if (value === "none") {
+                    handleVendorChange("");
+                  } else {
+                    handleVendorChange(value);
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="اختر البائع" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">بدون تحديد</SelectItem>
+                  {availableVendors.map((v) => (
+                    <SelectItem key={v.id} value={v.id || ""}>
+                      {v.name} ({v.productLimit ?? 5})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center text-sm text-muted-foreground">
+              سيُحفظ اسم البائع وشعاره وموقعه ورقم هاتفه مع المنتج لعرضها في المتجر والسلة.
+            </div>
+          </div>
+        )}
+
+        {mode === "vendor" && lockVendor && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="text-sm font-medium">البائع</label>
+              <Input
+                value={formData.vendorName || "غير محدد"}
+                readOnly
+                className="bg-muted"
+              />
+            </div>
+            <div className="text-sm text-muted-foreground flex items-center">
+              سيتم ربط المنتج تلقائياً بحسابك كبائع ولا يمكن تغييره.
+            </div>
+          </div>
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="text-sm font-medium">الاسم *</label>

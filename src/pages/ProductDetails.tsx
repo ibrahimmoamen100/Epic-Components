@@ -50,6 +50,7 @@ import { formatCurrency } from "@/utils/format";
 import { commonColors, getColorByName } from "@/constants/colors";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Card } from "@/components/ui/card";
 
 const ProductDetails = () => {
   const { id } = useParams();
@@ -676,6 +677,36 @@ const ProductDetails = () => {
                 )}
               </div>
             </div>
+
+            {/* Vendor Info */}
+            {product.vendorName && (
+              <Card className="bg-indigo-50 border-indigo-100 p-4">
+                <div className="flex items-center gap-4">
+                  {product.vendorLogoUrl ? (
+                    <img
+                      src={product.vendorLogoUrl}
+                      alt={product.vendorName}
+                      className="h-12 w-12 rounded-full object-cover border border-indigo-200"
+                    />
+                  ) : (
+                    <div className="h-12 w-12 rounded-full bg-indigo-200 text-indigo-800 flex items-center justify-center font-bold">
+                      {product.vendorName[0]}
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <p className="text-sm text-indigo-700">البائع</p>
+                    <p className="text-lg font-semibold text-indigo-900">
+                      {product.vendorName}
+                    </p>
+                    {product.vendorLocation && (
+                      <p className="text-sm text-indigo-700">
+                        📍 {product.vendorLocation}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            )}
 
             <Separator />
 

@@ -62,6 +62,8 @@ export const useStore = create<StoreState>()(
         minPrice: undefined,
         maxPrice: undefined,
         supplier: undefined,
+      vendorId: undefined,
+      vendorName: undefined,
         processorName: undefined,
         dedicatedGraphicsName: undefined,
         hasDedicatedGraphics: undefined,

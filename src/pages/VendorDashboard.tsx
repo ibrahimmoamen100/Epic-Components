@@ -215,7 +215,16 @@ const VendorDashboard = () => {
               )}
             </div>
             <div className={hasReachedLimit ? "opacity-50 pointer-events-none" : ""}>
-              <ProductForm onSubmit={handleVendorAddProduct as any} />
+              <ProductForm
+                onSubmit={handleVendorAddProduct as any}
+                mode="vendor"
+                lockVendor
+                defaultVendorId={vendorId || undefined}
+                defaultVendorName={vendorName}
+                defaultVendorLogoUrl={vendorLogoUrl}
+                defaultVendorLocation={vendorLocation}
+                defaultVendorPhone={session.vendor.phoneNumber}
+              />
             </div>
           </Card>
         </section>
@@ -263,6 +272,8 @@ const VendorDashboard = () => {
           open={!!editingProduct}
           onOpenChange={(open) => !open && setEditingProduct(null)}
           onSave={handleSaveEdit}
+          mode="vendor"
+          lockVendor
         />
       </main>
     </div>

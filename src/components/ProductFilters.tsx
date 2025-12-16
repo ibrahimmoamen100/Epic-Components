@@ -154,6 +154,12 @@ export function ProductFilters() {
     ) as string[];
   }, [products, filters.category, filters.subcategory]);
 
+  const vendors = useMemo(() => {
+    return Array.from(
+      new Set(products?.map((p) => p.vendorName).filter(Boolean) || [])
+    ) as string[];
+  }, [products]);
+
   // Processor brands derived from filtered products
   const processorBrands = useMemo(() => {
     return Array.from(
@@ -548,6 +554,44 @@ export function ProductFilters() {
                 }
               />
             </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Vendor Filter */}
+        <AccordionItem value="vendor">
+          <AccordionTrigger>{t("filters.vendor") || "البائع"}</AccordionTrigger>
+          <AccordionContent>
+            <RadioGroup
+              value={filters.vendorName || "all"}
+              onValueChange={(value) =>
+                setFilters({
+                  ...filters,
+                  vendorName: value === "all" ? undefined : value,
+                  vendorId: undefined,
+                })
+              }
+              className="space-y-2 pt-2"
+            >
+              <Label
+                htmlFor="all-vendors"
+                className={`${optionRow} ${!filters.vendorName ? optionSelected : ""}`}
+              >
+                <RadioGroupItem value="all" id="all-vendors" className="h-4 w-4" />
+                <span>جميع البائعين</span>
+              </Label>
+              {vendors.map((vendor) => (
+                <Label
+                  key={vendor}
+                  htmlFor={vendor}
+                  className={`${optionRow} ${
+                    filters.vendorName === vendor ? optionSelected : ""
+                  }`}
+                >
+                  <RadioGroupItem value={vendor} id={vendor} className="h-4 w-4" />
+                  <span>{vendor}</span>
+                </Label>
+              ))}
+            </RadioGroup>
           </AccordionContent>
         </AccordionItem>
 
@@ -1289,6 +1333,8 @@ export function ProductFilters() {
             category: undefined,
             subcategory: undefined,
             brand: undefined,
+              vendorId: undefined,
+              vendorName: undefined,
             color: undefined,
             size: undefined,
             minPrice: undefined,

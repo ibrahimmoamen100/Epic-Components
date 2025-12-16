@@ -100,6 +100,7 @@ export const ProductSchema = z.object({
   vendorName: z.string().optional(), // Cached for faster UI display & filtering
   vendorLogoUrl: z.string().optional(), // Optional cached logo for storefront
   vendorLocation: z.string().optional(), // Optional cached location for storefront
+  vendorPhone: z.string().optional(), // Optional cached phone for WhatsApp / cart grouping
 });
 
 export type Product = z.infer<typeof ProductSchema>;

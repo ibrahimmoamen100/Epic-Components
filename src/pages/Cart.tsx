@@ -50,9 +50,10 @@ interface DeliveryFormData {
   notes?: string;
 }
 
-interface SupplierGroup {
-  supplierName: string;
-  supplierPhone: string;
+interface VendorGroup {
+  vendorId: string;
+  vendorName: string;
+  vendorPhone?: string;
   items: { product: Product; quantity: number }[];
   total: number;
 }
@@ -90,37 +91,27 @@ const Cart = () => {
   // Watch form fields for validation
   const notes = watch("notes");
 
-  // Group cart items by supplier for WhatsApp messaging only
-  const supplierGroupsForMessaging: SupplierGroup[] = cart.reduce(
-    (groups: SupplierGroup[], item) => {
-      // Skip items with undefined or null product
-      if (!item.product) {
-        return groups;
-      }
-      
-      const supplierName =
-        item.product.wholesaleInfo?.supplierName || DEFAULT_SUPPLIER.name;
-      const supplierPhone = (
-        item.product.wholesaleInfo?.supplierPhone || DEFAULT_SUPPLIER.phone
-      ).replace(/^0/, "20");
-
-      const existingGroup = groups.find(
-        (group) => group.supplierName === supplierName
-      );
+  // Group cart items by vendor (for display and WhatsApp)
+  const vendorGroups: VendorGroup[] = cart.reduce(
+    (groups: VendorGroup[], item) => {
+      if (!item.product) return groups;
+      const vendorId = item.product.vendorId || "unknown";
+      const vendorName = item.product.vendorName || "بائع غير معروف";
+      const vendorPhone = item.product.vendorPhone || DEFAULT_SUPPLIER.phone;
+      const existing = groups.find((g) => g.vendorId === vendorId);
       const price = getCartItemPrice(item);
-
-      if (existingGroup) {
-        existingGroup.items.push(item);
-        existingGroup.total += price * item.quantity;
+      if (existing) {
+        existing.items.push(item);
+        existing.total += price * item.quantity;
       } else {
         groups.push({
-          supplierName,
-          supplierPhone,
+          vendorId,
+          vendorName,
+          vendorPhone: vendorPhone.replace(/^0/, "20"),
           items: [item],
           total: price * item.quantity,
         });
       }
-
       return groups;
     },
     []
@@ -132,8 +123,6 @@ const Cart = () => {
   // Function to send WhatsApp message with order details
   const sendWhatsAppOrderMessage = async (orderData: any, deliveryInfo: any) => {
     try {
-  const whatsappNumber = "201025423389";
-      
       // Format order items with better structure (size, color, addons)
       const orderItemsText = orderData.items.map((item: any, index: number) => {
         const lines: string[] = [];
@@ -198,12 +187,13 @@ ${'='.repeat(30)}
 
 *تم إرسال هذا الطلب تلقائياً من نظام المتجر*`;
 
-      // Create WhatsApp URL
-      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
-      
-      // Open WhatsApp in a new tab
-      window.open(whatsappUrl, '_blank');
-      
+      // Send to each vendor group phone (fallback to default)
+      vendorGroups.forEach((group) => {
+        const phone = (group.vendorPhone || DEFAULT_SUPPLIER.phone).replace(/^0/, "20");
+        const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+        window.open(whatsappUrl, "_blank");
+      });
+
       console.log('WhatsApp message sent successfully');
     } catch (error) {
       console.error('Error sending WhatsApp message:', error);
@@ -534,9 +524,6 @@ ${'='.repeat(30)}
       'تم إرسال الطلب من الموقع الالكتروني'
     ].join('\n');
 
-    // WhatsApp target number requested: 01025423389 -> international 201024911062
-    const whatsappNumber = '201025423389';
-
     // Prepare quantity deductions for all cart items
     const deductions = cart
       .filter((item) => item.product && item.product.id) // Filter out invalid items
@@ -591,9 +578,12 @@ ${'='.repeat(30)}
       }
     }
 
-    // Open WhatsApp to the configured number with the formatted message
-    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
+    // Open WhatsApp per vendor group
+    vendorGroups.forEach((group) => {
+      const phone = (group.vendorPhone || DEFAULT_SUPPLIER.phone).replace(/^0/, "20");
+      const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+      window.open(whatsappUrl, "_blank");
+    });
 
     // Reset form and clear cart (skip restore because quantities are already updated in Firebase)
     reset();
@@ -622,152 +612,171 @@ ${'='.repeat(30)}
             <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
               {/* Products List */}
               <div className="divide-y">
-                {cart
-                  .filter((item) => item.product && item.product.id) // Filter out invalid items
-                  .map((item) => {
-                    const itemPrice = getCartItemPrice(item);
-                    const isSpecialOffer = item.product.specialOffer && 
-                      item.product.discountPercentage && 
-                      item.product.offerEndsAt &&
-                      new Date(item.product.offerEndsAt) > new Date();
-                  
-                  return (
-                    <div
-                      key={`${item.product.id}-${item.selectedSize?.id || 'no-size'}-${item.selectedAddons.map(a => a.id).sort().join('-')}`}
-                      className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors"
-                    >
-                      {(() => {
-                        // Get the image for the selected color
-                        const availableColors = item.product.color ? item.product.color.split(',').map(c => c.trim()) : [];
-                        const colorImageMapping: { [key: string]: string } = {};
-                        availableColors.forEach((color, index) => {
-                          if (item.product.images && item.product.images[index]) {
-                            colorImageMapping[color] = item.product.images[index];
-                          }
-                        });
-                        
-                        const displayImage = item.selectedColor && colorImageMapping[item.selectedColor] 
-                          ? colorImageMapping[item.selectedColor] 
-                          : item.product.images[0];
-                        
-                        return (
-                          <div className="relative">
-                            <img
-                              src={displayImage}
-                              alt={item.product.name}
-                              className="h-20 w-20 rounded-md object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                                onClick={() => navigate(`/product/${item.product.id}`)}
-                            />
-                            {item.selectedColor && (
-                              <div 
-                                className="absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm"
-                                style={{ backgroundColor: item.selectedColor }}
-                              />
-                            )}
-                          </div>
-                        );
-                      })()}
-                      <div className="flex-1">
-                        <h3 
-                          className="font-medium cursor-pointer hover:text-primary hover:underline transition-colors"
-                          onClick={() => navigate(`/product/${item.product.id}`)}
-                        >
-                          {item.product.name}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          {item.product.brand}
-                        </p>
-                        {item.selectedSize && (
-                          <p className="text-sm text-blue-600 font-medium">
-                            📐 الحجم: {item.selectedSize.label}
-                          </p>
-                        )}
-                        {item.selectedColor && (
-                          <p className="text-sm text-purple-600 font-medium flex items-center gap-2">
-                            🎨 اللون: 
-                            <div 
-                              className="w-4 h-4 rounded-full border border-gray-300"
-                              style={{ backgroundColor: item.selectedColor }}
-                            />
-                            {getColorByName(item.selectedColor).name}
-                          </p>
-                        )}
-                        {item.selectedAddons && item.selectedAddons.length > 0 && (
-                          <p className="text-sm text-green-600">
-                            ➕ الإضافات: {item.selectedAddons.map(addon => addon.label).join(', ')}
-                          </p>
-                        )}
-                        <div className="flex md:flex-row flex-col md:items-center items-start gap-4 mt-2">
-                          <div className="flex items-center gap-0">
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={async () => {
-                                const newQuantity = Math.max(
-                                  0,
-                                  item.quantity - 1
-                                );
-                                if (newQuantity === 0) {
-                                  handleDeleteClick(item.product.id);
-                                } else {
-                                  try {
-                                    // Use the store function which handles Firebase update
-                                    updateCartItemQuantity(item.product.id, newQuantity);
-                                  } catch (error) {
-                                    toast.error("خطأ في تحديث الكمية", {
-                                      description: error instanceof Error ? error.message : "حدث خطأ غير متوقع",
-                                    });
-                                  }
-                                }
-                              }}
-                            >
-                              <Minus className="h-4 w-4" />
-                            </Button>
-                            <span className="w-12 text-center font-medium">
-                              {item.quantity}
-                            </span>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={async () => {
-                                try {
-                                  // Use the store function which handles Firebase update and stock checking
-                                  updateCartItemQuantity(item.product.id, item.quantity + 1);
-                                } catch (error) {
-                                  toast.error("خطأ في تحديث الكمية", {
-                                    description: error instanceof Error ? error.message : "حدث خطأ غير متوقع",
-                                  });
-                                }
-                              }}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg font-semibold">
-                              {formatCurrency(item.totalPrice, 'جنيه')}
-                            </span>
-                            {isSpecialOffer && (
-                              <span className="text-sm text-muted-foreground line-through">
-                                {formatCurrency(item.product.price * item.quantity, 'جنيه')}
-                              </span>
-                            )}
-                          </div>
-                        </div>
+                {vendorGroups.map((group) => (
+                  <div key={group.vendorId} className="border-b last:border-0">
+                    <div className="flex items-center justify-between px-4 py-2 bg-gray-50">
+                      <div className="font-semibold text-gray-800">
+                        البائع: {group.vendorName}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteClick(item.product.id)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {group.vendorPhone && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const url = `https://wa.me/${group.vendorPhone}?text=${encodeURIComponent(
+                              `مرحباً ${group.vendorName}، لدي استفسار حول الطلب.`
+                            )}`;
+                            window.open(url, "_blank");
+                          }}
+                        >
+                          واتساب البائع
+                        </Button>
+                      )}
                     </div>
-                  );
-                })}
+                    {group.items.map((item) => {
+                      const itemPrice = getCartItemPrice(item);
+                      const isSpecialOffer =
+                        item.product.specialOffer &&
+                        item.product.discountPercentage &&
+                        item.product.offerEndsAt &&
+                        new Date(item.product.offerEndsAt) > new Date();
+                      return (
+                        <div
+                          key={`${item.product.id}-${item.selectedSize?.id || "no-size"}-${item.selectedAddons
+                            .map((a) => a.id)
+                            .sort()
+                            .join("-")}`}
+                          className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors"
+                        >
+                          {(() => {
+                            const availableColors = item.product.color
+                              ? item.product.color.split(",").map((c) => c.trim())
+                              : [];
+                            const colorImageMapping: { [key: string]: string } = {};
+                            availableColors.forEach((color, index) => {
+                              if (item.product.images && item.product.images[index]) {
+                                colorImageMapping[color] = item.product.images[index];
+                              }
+                            });
+
+                            const displayImage =
+                              item.selectedColor && colorImageMapping[item.selectedColor]
+                                ? colorImageMapping[item.selectedColor]
+                                : item.product.images[0];
+
+                            return (
+                              <div className="relative">
+                                <img
+                                  src={displayImage}
+                                  alt={item.product.name}
+                                  className="h-20 w-20 rounded-md object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                                  onClick={() => navigate(`/product/${item.product.id}`)}
+                                />
+                                {item.selectedColor && (
+                                  <div
+                                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm"
+                                    style={{ backgroundColor: item.selectedColor }}
+                                  />
+                                )}
+                              </div>
+                            );
+                          })()}
+                          <div className="flex-1">
+                            <h3
+                              className="font-medium cursor-pointer hover:text-primary hover:underline transition-colors"
+                              onClick={() => navigate(`/product/${item.product.id}`)}
+                            >
+                              {item.product.name}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">{item.product.brand}</p>
+                            {item.selectedSize && (
+                              <p className="text-sm text-blue-600 font-medium">
+                                📐 الحجم: {item.selectedSize.label}
+                              </p>
+                            )}
+                            {item.selectedColor && (
+                              <p className="text-sm text-purple-600 font-medium flex items-center gap-2">
+                                🎨 اللون:
+                                <div
+                                  className="w-4 h-4 rounded-full border border-gray-300"
+                                  style={{ backgroundColor: item.selectedColor }}
+                                />
+                                {getColorByName(item.selectedColor).name}
+                              </p>
+                            )}
+                            {item.selectedAddons && item.selectedAddons.length > 0 && (
+                              <p className="text-sm text-green-600">
+                                ➕ الإضافات: {item.selectedAddons.map((addon) => addon.label).join(", ")}
+                              </p>
+                            )}
+                            <div className="flex md:flex-row flex-col md:items-center items-start gap-4 mt-2">
+                              <div className="flex items-center gap-0">
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={async () => {
+                                    const newQuantity = Math.max(0, item.quantity - 1);
+                                    if (newQuantity === 0) {
+                                      handleDeleteClick(item.product.id);
+                                    } else {
+                                      try {
+                                        updateCartItemQuantity(item.product.id, newQuantity);
+                                      } catch (error) {
+                                        toast.error("خطأ في تحديث الكمية", {
+                                          description:
+                                            error instanceof Error ? error.message : "حدث خطأ غير متوقع",
+                                        });
+                                      }
+                                    }
+                                  }}
+                                >
+                                  <Minus className="h-4 w-4" />
+                                </Button>
+                                <span className="w-12 text-center font-medium">{item.quantity}</span>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={async () => {
+                                    try {
+                                      updateCartItemQuantity(item.product.id, item.quantity + 1);
+                                    } catch (error) {
+                                      toast.error("خطأ في تحديث الكمية", {
+                                        description:
+                                          error instanceof Error ? error.message : "حدث خطأ غير متوقع",
+                                      });
+                                    }
+                                  }}
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg font-semibold">
+                                  {formatCurrency(item.totalPrice, "جنيه")}
+                                </span>
+                                {isSpecialOffer && (
+                                  <span className="text-sm text-muted-foreground line-through">
+                                    {formatCurrency(item.product.price * item.quantity, "جنيه")}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteClick(item.product.id)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             </div>
           </div>
