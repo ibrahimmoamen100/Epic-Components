@@ -143,10 +143,10 @@ export function VendorProfile({ vendor, onUpdate }: VendorProfileProps) {
 
     return (
         <div className="space-y-8 max-w-4xl mx-auto">
-            <Card className="bg-slate-900 border-slate-800 text-slate-100">
+            <Card className="bg-white border-gray-200 shadow-sm">
                 <CardHeader>
-                    <CardTitle className="text-2xl">الملف الشخصي</CardTitle>
-                    <CardDescription className="text-slate-400">
+                    <CardTitle className="text-2xl text-gray-900">الملف الشخصي</CardTitle>
+                    <CardDescription className="text-gray-600">
                         قم بتحديث معلومات متجرك وشعارك وبيانات التواصل الأساسية
                     </CardDescription>
                 </CardHeader>
@@ -156,7 +156,7 @@ export function VendorProfile({ vendor, onUpdate }: VendorProfileProps) {
                         <div className="flex flex-col md:flex-row gap-8">
                             {/* Logo Section */}
                             <div className="flex flex-col items-center gap-4">
-                                <div className="relative w-40 h-40 rounded-full overflow-hidden border-4 border-slate-700 bg-slate-800 flex items-center justify-center shadow-lg">
+                                <div className="relative w-40 h-40 rounded-full overflow-hidden border-4 border-gray-200 bg-gray-50 flex items-center justify-center shadow-lg">
                                     {formData.logoUrl ? (
                                         <img
                                             src={formData.logoUrl}
@@ -167,7 +167,7 @@ export function VendorProfile({ vendor, onUpdate }: VendorProfileProps) {
                                             }}
                                         />
                                     ) : (
-                                        <span className="text-slate-500 text-sm font-medium">لا يوجد شعار</span>
+                                        <span className="text-gray-400 text-sm font-medium">لا يوجد شعار</span>
                                     )}
                                 </div>
                                 <div className="flex flex-col items-center w-full gap-2">
@@ -177,21 +177,21 @@ export function VendorProfile({ vendor, onUpdate }: VendorProfileProps) {
                                             variant="outline"
                                             size="sm"
                                             onClick={() => setShowLogoInput(true)}
-                                            className="bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700 hover:text-white"
+                                            className="bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-gray-900"
                                         >
                                             <Upload className="w-4 h-4 mr-2" />
                                             تغيير الشعار
                                         </Button>
                                     ) : (
                                         <div className="w-full space-y-2 animate-in fade-in slide-in-from-top-1">
-                                            <Label htmlFor="logo-url" className="text-xs text-slate-400">رابط الشعار URL</Label>
+                                            <Label htmlFor="logo-url" className="text-xs text-gray-600">رابط الشعار URL</Label>
                                             <div className="flex gap-2">
                                                 <Input
                                                     id="logo-url"
                                                     type="url"
                                                     value={formData.logoUrl}
                                                     onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
-                                                    className="bg-slate-950 border-slate-700 text-xs h-8"
+                                                    className="bg-white border-gray-300 text-gray-900 text-xs h-8"
                                                     placeholder="https://example.com/logo.png"
                                                 />
                                                 <Button
@@ -215,84 +215,84 @@ export function VendorProfile({ vendor, onUpdate }: VendorProfileProps) {
                             <div className="flex-1 space-y-6">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
-                                        <Label>اسم المتجر / البائع <span className="text-red-400">*</span></Label>
+                                        <Label className="text-gray-700">اسم المتجر / البائع <span className="text-red-600">*</span></Label>
                                         <Input
                                             required
                                             value={formData.name}
                                             onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                            className="bg-slate-950 border-slate-700 focus:ring-primary"
+                                            className="bg-white border-gray-300 text-gray-900 focus:ring-primary"
                                             placeholder="اسم المتجر"
                                         />
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Label>رقم الهاتف / الواتساب <span className="text-red-400">*</span></Label>
+                                        <Label className="text-gray-700">رقم الهاتف / الواتساب <span className="text-red-600">*</span></Label>
                                         <Input
                                             required
                                             dir="ltr"
-                                            className="text-right bg-slate-950 border-slate-700 focus:ring-primary"
+                                            className="text-right bg-white border-gray-300 text-gray-900 focus:ring-primary"
                                             value={formData.phoneNumber}
                                             onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })}
                                             placeholder="+20 1xxxxxxxxx"
                                         />
                                     </div>
 
-                                    <div className="space-y-2 border-slate-700">
-                                        <Label>الموقع / العنوان <span className="text-red-400">*</span></Label>
+                                    <div className="space-y-2 border-gray-300">
+                                        <Label className="text-gray-700">الموقع / العنوان <span className="text-red-600">*</span></Label>
                                         <Input
                                             required
                                             value={formData.storeLocation}
                                             onChange={e => setFormData({ ...formData, storeLocation: e.target.value })}
-                                            className="bg-slate-950 border-slate-700 focus:ring-primary"
+                                            className="bg-white border-gray-300 text-gray-900 focus:ring-primary"
                                             placeholder="العنوان التفصيلي"
                                         />
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Label>البريد الإلكتروني (Gmail) <span className="text-red-400">*</span></Label>
+                                        <Label className="text-gray-700">البريد الإلكتروني (Gmail) <span className="text-red-600">*</span></Label>
                                         <Input
                                             required
                                             type="email"
                                             dir="ltr"
                                             value={formData.gmailAccount}
                                             onChange={e => setFormData({ ...formData, gmailAccount: e.target.value })}
-                                            className="text-right bg-slate-950 border-slate-700 focus:ring-primary"
+                                            className="text-right bg-white border-gray-300 text-gray-900 focus:ring-primary"
                                             placeholder="example@gmail.com"
                                         />
                                     </div>
                                 </div>
 
-                                <div className="h-px bg-slate-800 my-2" />
+                                <div className="h-px bg-gray-200 my-2" />
 
                                 {/* Read Only Fields */}
                                 <div>
-                                    <h3 className="text-base font-semibold mb-4 text-slate-300 flex items-center gap-2">
+                                    <h3 className="text-base font-semibold mb-4 text-gray-800 flex items-center gap-2">
                                         معلومات الحساب
-                                        <span className="text-xs font-normal text-slate-500 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">للقراءة فقط</span>
+                                        <span className="text-xs font-normal text-gray-600 bg-gray-100 px-2 py-0.5 rounded border border-gray-300">للقراءة فقط</span>
                                     </h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-2 opacity-80">
-                                            <Label className="text-slate-400">اسم المستخدم</Label>
-                                            <Input value={vendor.username} readOnly disabled className="bg-slate-900/50 border-slate-800 cursor-not-allowed text-slate-400" />
+                                        <div className="space-y-2 opacity-70">
+                                            <Label className="text-gray-600">اسم المستخدم</Label>
+                                            <Input value={vendor.username} readOnly disabled className="bg-gray-100 border-gray-200 cursor-not-allowed text-gray-500" />
                                         </div>
-                                        <div className="space-y-2 opacity-80">
-                                            <Label className="text-slate-400">الحد الأقصى للمنتجات</Label>
-                                            <Input value={`${vendor.productLimit} منتج`} readOnly disabled className="bg-slate-900/50 border-slate-800 cursor-not-allowed text-slate-400" />
+                                        <div className="space-y-2 opacity-70">
+                                            <Label className="text-gray-600">الحد الأقصى للمنتجات</Label>
+                                            <Input value={`${vendor.productLimit} منتج`} readOnly disabled className="bg-gray-100 border-gray-200 cursor-not-allowed text-gray-500" />
                                         </div>
-                                        <div className="space-y-2 opacity-80">
-                                            <Label className="text-slate-400">حالة الحساب</Label>
-                                            <Input value="نشط (Active)" readOnly disabled className="bg-slate-900/50 border-slate-800 cursor-not-allowed text-green-500 font-medium" />
+                                        <div className="space-y-2 opacity-70">
+                                            <Label className="text-gray-600">حالة الحساب</Label>
+                                            <Input value="نشط (Active)" readOnly disabled className="bg-gray-100 border-gray-200 cursor-not-allowed text-green-600 font-medium" />
                                         </div>
-                                        <div className="space-y-2 opacity-80">
-                                            <Label className="text-slate-400">الدور (Role)</Label>
-                                            <Input value="بائع (Vendor)" readOnly disabled className="bg-slate-900/50 border-slate-800 cursor-not-allowed text-slate-400" />
+                                        <div className="space-y-2 opacity-70">
+                                            <Label className="text-gray-600">الدور (Role)</Label>
+                                            <Input value="بائع (Vendor)" readOnly disabled className="bg-gray-100 border-gray-200 cursor-not-allowed text-gray-500" />
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex justify-end pt-6 border-t border-slate-800">
+                        <div className="flex justify-end pt-6 border-t border-gray-200">
                             <Button type="submit" disabled={loading} size="lg" className="w-full md:w-auto min-w-[150px]">
                                 {loading ? (
                                     <>
@@ -309,53 +309,53 @@ export function VendorProfile({ vendor, onUpdate }: VendorProfileProps) {
             </Card>
 
             {/* Password Change Card */}
-            <Card className="bg-slate-900 border-slate-800 text-slate-100">
+            <Card className="bg-white border-gray-200 shadow-sm">
                 <CardHeader>
-                    <CardTitle className="text-xl">تغيير كلمة المرور</CardTitle>
-                    <CardDescription className="text-slate-400">
+                    <CardTitle className="text-xl text-gray-900">تغيير كلمة المرور</CardTitle>
+                    <CardDescription className="text-gray-600">
                         قم بتحديث كلمة المرور الخاصة بحسابك
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handlePasswordChange} className="space-y-4 max-w-2xl">
                         <div className="space-y-2">
-                            <Label>كلمة المرور الحالية</Label>
+                            <Label className="text-gray-700">كلمة المرور الحالية</Label>
                             <Input
                                 type="password"
                                 required
                                 value={passwordData.currentPassword}
                                 onChange={e => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                                className="bg-slate-950 border-slate-700"
+                                className="bg-white border-gray-300 text-gray-900"
                             />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label>كلمة المرور الجديدة</Label>
+                                <Label className="text-gray-700">كلمة المرور الجديدة</Label>
                                 <Input
                                     type="password"
                                     required
                                     value={passwordData.newPassword}
                                     onChange={e => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                                    className="bg-slate-950 border-slate-700"
+                                    className="bg-white border-gray-300 text-gray-900"
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>تأكيد كلمة المرور الجديدة</Label>
+                                <Label className="text-gray-700">تأكيد كلمة المرور الجديدة</Label>
                                 <Input
                                     type="password"
                                     required
                                     value={passwordData.confirmPassword}
                                     onChange={e => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                                    className="bg-slate-950 border-slate-700"
+                                    className="bg-white border-gray-300 text-gray-900"
                                 />
                             </div>
                         </div>
                         <div className="flex justify-end pt-4">
-                            <Button type="submit" disabled={passwordLoading} variant="secondary">
+                            <Button type="submit" disabled={passwordLoading} className="w-full md:w-auto">
                                 {passwordLoading ? (
                                     <>
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        جاري تغيير كلمة المرور...
+                                        جاري التحديث...
                                     </>
                                 ) : (
                                     "تحديث كلمة المرور"

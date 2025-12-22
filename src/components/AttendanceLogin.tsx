@@ -36,7 +36,7 @@ const AttendanceLogin: React.FC<AttendanceLoginProps> = ({ onLoginEmployee, onLo
       }
 
       const result = await onLoginEmployee(employeeUsername.trim(), employeePassword);
-      
+
       if (result.success) {
         toast.success('تم تسجيل الدخول بنجاح');
         setEmployeeUsername('');
@@ -67,7 +67,7 @@ const AttendanceLogin: React.FC<AttendanceLoginProps> = ({ onLoginEmployee, onLo
       }
 
       const result = await onLoginAdmin(adminPassword);
-      
+
       if (result.success) {
         toast.success('تم تسجيل الدخول بنجاح');
         setAdminPassword('');

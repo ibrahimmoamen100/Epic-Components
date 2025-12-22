@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { Loader2, Eye, EyeOff, AlertTriangle, Building2, Phone, Mail, MapPin, Hash, Key } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { vendorsService } from "@/lib/firebase";
 
 interface VendorEditDialogProps {
     vendor: Vendor | null;
@@ -92,6 +93,34 @@ export function VendorEditDialog({ vendor, open, onOpenChange, onSave }: VendorE
             toast.error(error.message || "فشل في حفظ بيانات البائع");
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleResetEditCounter = async () => {
+        if (!formData?.id) return;
+
+        try {
+            await vendorsService.resetEditCounter(formData.id);
+            // Update local form data to reflect the reset
+            setFormData({ ...formData, editProductUsed: 0 });
+            toast.success("تم إعادة تعيين عداد التعديلات بنجاح");
+        } catch (error: any) {
+            console.error("Error resetting edit counter:", error);
+            toast.error("فشل في إعادة تعيين العداد");
+        }
+    };
+
+    const handleResetDeleteCounter = async () => {
+        if (!formData?.id) return;
+
+        try {
+            await vendorsService.resetDeleteCounter(formData.id);
+            // Update local form data to reflect the reset
+            setFormData({ ...formData, deleteProductUsed: 0 });
+            toast.success("تم إعادة تعيين عداد الحذف بنجاح");
+        } catch (error: any) {
+            console.error("Error resetting delete counter:", error);
+            toast.error("فشل في إعادة تعيين العداد");
         }
     };
 
@@ -253,6 +282,131 @@ export function VendorEditDialog({ vendor, open, onOpenChange, onSave }: VendorE
                                     </p>
                                 </div>
                             </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Action Limits Section */}
+                    <Card className="border-blue-200 bg-blue-50">
+                        <CardHeader>
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                📊 حدود عمليات التعديل والحذف
+                            </CardTitle>
+                            <CardDescription>التحكم في عدد مرات التعديل والحذف المسموح بها</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Edit Limits */}
+                                <div className="space-y-3">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="editProductLimit" className="flex items-center gap-2">
+                                            ✏️ الحد الأقصى للتعديلات
+                                        </Label>
+                                        <Input
+                                            id="editProductLimit"
+                                            type="number"
+                                            min={0}
+                                            value={formData.editProductLimit ?? 5}
+                                            onChange={(e) =>
+                                                setFormData({
+                                                    ...formData,
+                                                    editProductLimit: Number(e.target.value) || 0,
+                                                })
+                                            }
+                                            placeholder="5"
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            عدد التعديلات المسموح بها للمنتجات
+                                        </p>
+                                    </div>
+                                    <div className="rounded-md bg-white p-3 border border-blue-200">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-sm font-medium">المستخدم حالياً:</span>
+                                            <span className="text-lg font-bold text-blue-600">
+                                                {formData.editProductUsed ?? 0} / {formData.editProductLimit ?? 5}
+                                            </span>
+                                        </div>
+                                        <div className="w-full bg-gray-200 rounded-full h-2">
+                                            <div
+                                                className="bg-blue-600 h-2 rounded-full transition-all"
+                                                style={{
+                                                    width: `${Math.min(
+                                                        ((formData.editProductUsed ?? 0) / (formData.editProductLimit ?? 5)) * 100,
+                                                        100
+                                                    )}%`,
+                                                }}
+                                            />
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full mt-2"
+                                            onClick={handleResetEditCounter}
+                                        >
+                                            🔄 إعادة تعيين العداد
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {/* Delete Limits */}
+                                <div className="space-y-3">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="deleteProductLimit" className="flex items-center gap-2">
+                                            🗑️ الحد الأقصى للحذف
+                                        </Label>
+                                        <Input
+                                            id="deleteProductLimit"
+                                            type="number"
+                                            min={0}
+                                            value={formData.deleteProductLimit ?? 5}
+                                            onChange={(e) =>
+                                                setFormData({
+                                                    ...formData,
+                                                    deleteProductLimit: Number(e.target.value) || 0,
+                                                })
+                                            }
+                                            placeholder="5"
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            عدد عمليات الحذف المسموح بها للمنتجات
+                                        </p>
+                                    </div>
+                                    <div className="rounded-md bg-white p-3 border border-blue-200">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-sm font-medium">المستخدم حالياً:</span>
+                                            <span className="text-lg font-bold text-red-600">
+                                                {formData.deleteProductUsed ?? 0} / {formData.deleteProductLimit ?? 5}
+                                            </span>
+                                        </div>
+                                        <div className="w-full bg-gray-200 rounded-full h-2">
+                                            <div
+                                                className="bg-red-600 h-2 rounded-full transition-all"
+                                                style={{
+                                                    width: `${Math.min(
+                                                        ((formData.deleteProductUsed ?? 0) / (formData.deleteProductLimit ?? 5)) * 100,
+                                                        100
+                                                    )}%`,
+                                                }}
+                                            />
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full mt-2"
+                                            onClick={handleResetDeleteCounter}
+                                        >
+                                            🔄 إعادة تعيين العداد
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <Alert className="bg-blue-100 border-blue-300">
+                                <AlertDescription className="text-blue-800 text-sm">
+                                    <strong>ملاحظة:</strong> يمكنك زيادة أو تقليل الحدود في أي وقت. إعادة تعيين العدادات ستسمح للبائع بالقيام بمزيد من العمليات.
+                                </AlertDescription>
+                            </Alert>
                         </CardContent>
                     </Card>
 

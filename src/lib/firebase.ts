@@ -498,6 +498,23 @@ export class FirebaseVendorsService {
     }
   }
 
+  // Get vendor by slug (for SEO-friendly URLs)
+  async getVendorBySlug(slug: string): Promise<Vendor | null> {
+    try {
+      const vendorsRef = collection(db, this.collectionName);
+      const q = query(vendorsRef, where('slug', '==', slug));
+      const snap = await getDocs(q);
+
+      if (snap.empty) return null;
+
+      const docSnap = snap.docs[0];
+      return this.mapVendor(docSnap.id, docSnap.data());
+    } catch (error) {
+      console.error('Error getting vendor by slug:', error);
+      throw error;
+    }
+  }
+
   // Create new vendor (used on vendor signup)
   async addVendor(
     payload: Omit<Vendor, 'id' | 'createdAt' | 'updatedAt' | 'productsCount'>
@@ -536,9 +553,19 @@ export class FirebaseVendorsService {
       delete payload.id;
       delete payload.createdAt;
 
-      payload.updatedAt = Timestamp.now();
+      // Filter out undefined values to prevent Firebase errors
+      // Firebase Firestore does not accept undefined as a field value
+      const cleanPayload: any = {};
+      Object.keys(payload).forEach((key) => {
+        const value = payload[key];
+        if (value !== undefined) {
+          cleanPayload[key] = value;
+        }
+      });
 
-      await updateDoc(docRef, payload);
+      cleanPayload.updatedAt = Timestamp.now();
+
+      await updateDoc(docRef, cleanPayload);
 
       const updated = await this.getVendorById(id);
       if (!updated) {
@@ -625,6 +652,160 @@ export class FirebaseVendorsService {
       // And uses admin.auth().updateUser(uid, { password: newPassword })
     } catch (error) {
       console.error('Error resetting vendor password:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if vendor can edit a product (hasn't exceeded limit)
+   * @param vendorId - Vendor's Firestore document ID
+   * @returns true if vendor can edit, false if limit reached
+   */
+  async canVendorEditProduct(vendorId: string): Promise<{ canEdit: boolean; used: number; limit: number }> {
+    try {
+      const vendor = await this.getVendorById(vendorId);
+      if (!vendor) {
+        throw new Error('Vendor not found');
+      }
+
+      const used = vendor.editProductUsed ?? 0;
+      const limit = vendor.editProductLimit ?? 5;
+
+      return {
+        canEdit: used < limit,
+        used,
+        limit,
+      };
+    } catch (error) {
+      console.error('Error checking vendor edit limit:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if vendor can delete a product (hasn't exceeded limit)
+   * @param vendorId - Vendor's Firestore document ID
+   * @returns true if vendor can delete, false if limit reached
+   */
+  async canVendorDeleteProduct(vendorId: string): Promise<{ canDelete: boolean; used: number; limit: number }> {
+    try {
+      const vendor = await this.getVendorById(vendorId);
+      if (!vendor) {
+        throw new Error('Vendor not found');
+      }
+
+      const used = vendor.deleteProductUsed ?? 0;
+      const limit = vendor.deleteProductLimit ?? 5;
+
+      return {
+        canDelete: used < limit,
+        used,
+        limit,
+      };
+    } catch (error) {
+      console.error('Error checking vendor delete limit:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Increment vendor's edit counter
+   * Should be called after a successful product edit
+   * @param vendorId - Vendor's Firestore document ID
+   */
+  async incrementEditCounter(vendorId: string): Promise<void> {
+    try {
+      const docRef = doc(db, this.collectionName, vendorId);
+      const vendor = await this.getVendorById(vendorId);
+
+      if (!vendor) {
+        throw new Error('Vendor not found');
+      }
+
+      const currentUsed = vendor.editProductUsed ?? 0;
+      const limit = vendor.editProductLimit ?? 5;
+
+      if (currentUsed >= limit) {
+        throw new Error('Edit limit reached. Cannot increment counter.');
+      }
+
+      await updateDoc(docRef, {
+        editProductUsed: currentUsed + 1,
+        updatedAt: Timestamp.now(),
+      });
+
+      console.log(`✅ Incremented edit counter for vendor ${vendorId}: ${currentUsed} → ${currentUsed + 1}`);
+    } catch (error) {
+      console.error('Error incrementing edit counter:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Increment vendor's delete counter
+   * Should be called after a successful product deletion
+   * @param vendorId - Vendor's Firestore document ID
+   */
+  async incrementDeleteCounter(vendorId: string): Promise<void> {
+    try {
+      const docRef = doc(db, this.collectionName, vendorId);
+      const vendor = await this.getVendorById(vendorId);
+
+      if (!vendor) {
+        throw new Error('Vendor not found');
+      }
+
+      const currentUsed = vendor.deleteProductUsed ?? 0;
+      const limit = vendor.deleteProductLimit ?? 5;
+
+      if (currentUsed >= limit) {
+        throw new Error('Delete limit reached. Cannot increment counter.');
+      }
+
+      await updateDoc(docRef, {
+        deleteProductUsed: currentUsed + 1,
+        updatedAt: Timestamp.now(),
+      });
+
+      console.log(`✅ Incremented delete counter for vendor ${vendorId}: ${currentUsed} → ${currentUsed + 1}`);
+    } catch (error) {
+      console.error('Error incrementing delete counter:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reset vendor's edit counter (Admin only)
+   * @param vendorId - Vendor's Firestore document ID
+   */
+  async resetEditCounter(vendorId: string): Promise<void> {
+    try {
+      const docRef = doc(db, this.collectionName, vendorId);
+      await updateDoc(docRef, {
+        editProductUsed: 0,
+        updatedAt: Timestamp.now(),
+      });
+      console.log(`✅ Reset edit counter for vendor ${vendorId}`);
+    } catch (error) {
+      console.error('Error resetting edit counter:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reset vendor's delete counter (Admin only)
+   * @param vendorId - Vendor's Firestore document ID
+   */
+  async resetDeleteCounter(vendorId: string): Promise<void> {
+    try {
+      const docRef = doc(db, this.collectionName, vendorId);
+      await updateDoc(docRef, {
+        deleteProductUsed: 0,
+        updatedAt: Timestamp.now(),
+      });
+      console.log(`✅ Reset delete counter for vendor ${vendorId}`);
+    } catch (error) {
+      console.error('Error resetting delete counter:', error);
       throw error;
     }
   }

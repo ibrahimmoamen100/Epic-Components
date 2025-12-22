@@ -11,7 +11,8 @@
     "home": "Home",
     "followUs": "Follow Us",
     "delivery": "Delivery",
-    "faq": "FAQ"
+    "faq": "FAQ",
+    "vendor": "Vendor Portal"
   },
   "filters": {
     "sortBy": "Sort By",
@@ -36,8 +37,7 @@
     "priceRange": "Price Range",
     "clearAll": "Clear All Filters",
     "apply": "Apply Filters",
-    "selectCategoryFirst": "Please select a category first"
-    ,
+    "selectCategoryFirst": "Please select a category first",
     "processor": "Processor",
     "dedicatedGraphics": "Dedicated Graphics",
     "onlyWithGPU": "Only products with dedicated GPU",
@@ -62,14 +62,12 @@
     "viewDetails": "View Details",
     "price": "Price"
   },
-
   "suppliers": {
     "title": "Our Suppliers",
     "description": "Suppliers Information",
     "supplierInfo": "Supplier Information",
     "supplierInfoDescription": "Supplier Information Description"
   },
-
   "cart": {
     "title": "Shopping Cart",
     "empty": "Your cart is empty",

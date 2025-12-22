@@ -1,6 +1,6 @@
 import { useStore } from "@/store/useStore";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { X } from "lucide-react";
 import { useMemo } from "react";
 
@@ -14,6 +14,7 @@ interface ActiveFilter {
 export function ActiveFilters() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { vendorSlug } = useParams();
   const filters = useStore((state) => state.filters);
   const setFilters = useStore((state) => state.setFilters);
   const products = useStore((state) => state.products) || [];
@@ -177,7 +178,11 @@ export function ActiveFilters() {
         removeHandler: () => {
           const newFilters = { ...filters, category: undefined, subcategory: undefined };
           setFilters(newFilters);
-          navigate('/products');
+          if (vendorSlug) {
+            navigate(`/products/vendor/${vendorSlug}`);
+          } else {
+            navigate('/products');
+          }
         },
       });
     }
@@ -214,6 +219,11 @@ export function ActiveFilters() {
         value: filters.vendorName,
         removeHandler: () => {
           setFilters({ ...filters, vendorName: undefined, vendorId: undefined });
+          if (filters.category) {
+            navigate(`/products/category/${encodeURIComponent(filters.category)}`);
+          } else {
+            navigate('/products');
+          }
         },
       });
     }
@@ -406,8 +416,8 @@ export function ActiveFilters() {
         filters.minPrice !== undefined && filters.maxPrice !== undefined
           ? `${filters.minPrice} - ${filters.maxPrice} ${t("common.currency")}`
           : filters.minPrice !== undefined
-          ? `من ${filters.minPrice} ${t("common.currency")}`
-          : `حتى ${filters.maxPrice} ${t("common.currency")}`;
+            ? `من ${filters.minPrice} ${t("common.currency")}`
+            : `حتى ${filters.maxPrice} ${t("common.currency")}`;
 
       activeFilters.push({
         key: "priceRange",

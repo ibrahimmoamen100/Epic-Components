@@ -1,6 +1,6 @@
 import { useStore } from "@/store/useStore";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Accordion,
   AccordionContent,
@@ -17,6 +17,7 @@ import { Slider } from "@/components/ui/slider";
 import { useState, useMemo, useEffect } from "react";
 import { DEFAULT_SUPPLIER } from "@/constants/supplier";
 import { formatCurrency } from "@/utils/format";
+import { generateVendorSlug } from "@/utils/slugify";
 
 const DEFAULT_SUPPLIER_NAME = "spark";
 const DEFAULT_SUPPLIER_PHONE = "01025423389";
@@ -25,8 +26,10 @@ export function ProductFilters() {
   const filters = useStore((state) => state.filters) || {};
   const setFilters = useStore((state) => state.setFilters);
   const products = useStore((state) => state.products) || [];
+  const vendorsFromStore = useStore((state) => state.vendors) || [];
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { vendorSlug } = useParams();
   const [expandedSections, setExpandedSections] = useState({
     price: true,
     category: true,
@@ -155,10 +158,18 @@ export function ProductFilters() {
   }, [products, filters.category, filters.subcategory]);
 
   const vendors = useMemo(() => {
+    // Use vendors from store as the single source of truth
+    // This ensures filters reflect current vendor names immediately
+    if (vendorsFromStore && vendorsFromStore.length > 0) {
+      return Array.from(new Set(vendorsFromStore.map((v) => v.name).filter(Boolean))).sort();
+    }
+
+    // Fallback: If store vendors aren't loaded yet, try to derive from products
+    // (though DataLoader should handle loading vendors)
     return Array.from(
       new Set(products?.map((p) => p.vendorName).filter(Boolean) || [])
     ) as string[];
-  }, [products]);
+  }, [vendorsFromStore, products]);
 
   // Processor brands derived from filtered products
   const processorBrands = useMemo(() => {
@@ -166,7 +177,7 @@ export function ProductFilters() {
       new Set(
         filteredProducts
           .map((p) => p.processor?.processorBrand)
-          .filter((brand): brand is "Intel" | "AMD" | "Other" => 
+          .filter((brand): brand is "Intel" | "AMD" | "Other" =>
             brand === "Intel" || brand === "AMD" || brand === "Other"
           )
       )
@@ -176,7 +187,7 @@ export function ProductFilters() {
   // Processor generations derived from filtered products, filtered by processor brand if selected
   const processorGenerations = useMemo(() => {
     let productsToConsider = filteredProducts;
-    
+
     // Filter by processor brand if selected
     if (filters.processorBrand && filters.processorBrand.length > 0) {
       productsToConsider = productsToConsider.filter((p) => {
@@ -185,7 +196,7 @@ export function ProductFilters() {
         return filters.processorBrand?.includes(processorBrand) || false;
       });
     }
-    
+
     return Array.from(
       new Set(
         productsToConsider
@@ -198,7 +209,7 @@ export function ProductFilters() {
   // Processor series derived from filtered products, filtered by processor brand and generation if selected
   const processorSeries = useMemo(() => {
     let productsToConsider = filteredProducts;
-    
+
     // Filter by processor brand if selected
     if (filters.processorBrand && filters.processorBrand.length > 0) {
       productsToConsider = productsToConsider.filter((p) => {
@@ -207,14 +218,14 @@ export function ProductFilters() {
         return filters.processorBrand?.includes(processorBrand) || false;
       });
     }
-    
+
     // Filter by processor generation if selected
     if (filters.processorGeneration && filters.processorGeneration.length > 0) {
       productsToConsider = productsToConsider.filter((p) =>
         filters.processorGeneration?.includes(p.processor?.processorGeneration || "")
       );
     }
-    
+
     return Array.from(
       new Set(
         productsToConsider
@@ -227,7 +238,7 @@ export function ProductFilters() {
   // Integrated GPUs derived from filtered products, filtered by processor brand, generation, and series if selected
   const integratedGpus = useMemo(() => {
     let productsToConsider = filteredProducts;
-    
+
     // Filter by processor brand if selected
     if (filters.processorBrand && filters.processorBrand.length > 0) {
       productsToConsider = productsToConsider.filter((p) => {
@@ -236,21 +247,21 @@ export function ProductFilters() {
         return filters.processorBrand?.includes(processorBrand) || false;
       });
     }
-    
+
     // Filter by processor generation if selected
     if (filters.processorGeneration && filters.processorGeneration.length > 0) {
       productsToConsider = productsToConsider.filter((p) =>
         filters.processorGeneration?.includes(p.processor?.processorGeneration || "")
       );
     }
-    
+
     // Filter by processor series if selected
     if (filters.processorSeries && filters.processorSeries.length > 0) {
       productsToConsider = productsToConsider.filter((p) =>
         filters.processorSeries?.includes(p.processor?.processorSeries || "")
       );
     }
-    
+
     return Array.from(
       new Set(
         productsToConsider
@@ -266,7 +277,7 @@ export function ProductFilters() {
       new Set(
         filteredProducts
           .map((p) => p.dedicatedGraphics?.dedicatedGpuBrand)
-          .filter((brand): brand is "NVIDIA" | "AMD" | "Intel" | "Custom" => 
+          .filter((brand): brand is "NVIDIA" | "AMD" | "Intel" | "Custom" =>
             brand === "NVIDIA" || brand === "AMD" || brand === "Intel" || brand === "Custom"
           )
       )
@@ -287,7 +298,7 @@ export function ProductFilters() {
   // Processor names derived from filtered products and dependent on processor filters (brand, generation, series, integratedGpu) and GPU filter
   const processorNames = useMemo(() => {
     let productsToConsider = filteredProducts;
-    
+
     // Filter by processor brand if selected
     if (filters.processorBrand && filters.processorBrand.length > 0) {
       productsToConsider = productsToConsider.filter((p) => {
@@ -296,35 +307,35 @@ export function ProductFilters() {
         return filters.processorBrand?.includes(processorBrand) || false;
       });
     }
-    
+
     // Filter by processor generation if selected
     if (filters.processorGeneration && filters.processorGeneration.length > 0) {
       productsToConsider = productsToConsider.filter((p) =>
         filters.processorGeneration?.includes(p.processor?.processorGeneration || "")
       );
     }
-    
+
     // Filter by processor series if selected
     if (filters.processorSeries && filters.processorSeries.length > 0) {
       productsToConsider = productsToConsider.filter((p) =>
         filters.processorSeries?.includes(p.processor?.processorSeries || "")
       );
     }
-    
+
     // Filter by integrated GPU if selected
     if (filters.integratedGpu && filters.integratedGpu.length > 0) {
       productsToConsider = productsToConsider.filter((p) =>
         filters.integratedGpu?.includes(p.processor?.integratedGpu || "")
       );
     }
-    
+
     // If a GPU is selected, only show processors that exist in products with that GPU
     if (filters.dedicatedGraphicsName) {
       productsToConsider = productsToConsider.filter(
         (p) => p.dedicatedGraphics?.name === filters.dedicatedGraphicsName
       );
     }
-    
+
     return Array.from(
       new Set(
         productsToConsider
@@ -337,14 +348,14 @@ export function ProductFilters() {
   // Dedicated GPU names derived from filtered products and dependent on CPU filter
   const gpuNames = useMemo(() => {
     let productsToConsider = filteredProducts;
-    
+
     // If a processor is selected, only show GPUs that exist in products with that processor
     if (filters.processorName) {
       productsToConsider = productsToConsider.filter(
         (p) => p.processor?.name === filters.processorName
       );
     }
-    
+
     return Array.from(
       new Set(
         productsToConsider
@@ -456,7 +467,7 @@ export function ProductFilters() {
   // Reset dependent filters when category changes
   const handleCategoryChange = (value: string) => {
     const newCategory = value === "all" ? undefined : value;
-    
+
     setFilters({
       ...filters,
       category: newCategory,
@@ -479,9 +490,17 @@ export function ProductFilters() {
     // Update URL
     if (newCategory) {
       const encodedCategory = encodeURIComponent(newCategory);
-      navigate(`/products/category/${encodedCategory}`);
+      if (vendorSlug) {
+        navigate(`/products/vendor/${vendorSlug}/category/${encodedCategory}`);
+      } else {
+        navigate(`/products/category/${encodedCategory}`);
+      }
     } else {
-      navigate('/products');
+      if (vendorSlug) {
+        navigate(`/products/vendor/${vendorSlug}`);
+      } else {
+        navigate('/products');
+      }
     }
   };
 
@@ -531,7 +550,7 @@ export function ProductFilters() {
           <AccordionContent>
             <div className="space-y-4 pt-2">
               <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">
+                <span className="text-sm text-muted-foreground">
                   {formatCurrency(priceRange[1], 'جنيه')}{" "}
                 </span>
                 <span className="text-sm text-muted-foreground">
@@ -562,35 +581,84 @@ export function ProductFilters() {
           <AccordionTrigger>{t("filters.vendor") || "البائع"}</AccordionTrigger>
           <AccordionContent>
             <RadioGroup
-              value={filters.vendorName || "all"}
-              onValueChange={(value) =>
-                setFilters({
-                  ...filters,
-                  vendorName: value === "all" ? undefined : value,
-                  vendorId: undefined,
-                })
-              }
+              value={filters.vendorId || "all"}
+              onValueChange={(value) => {
+                if (value === "all") {
+                  // Clear vendor filter and navigate to main products page
+                  setFilters({
+                    ...filters,
+                    vendorName: undefined,
+                    vendorId: undefined,
+                  });
+                  if (filters.category) {
+                    navigate(`/products/category/${encodeURIComponent(filters.category)}`);
+                  } else {
+                    navigate('/products');
+                  }
+                } else {
+                  // Find the vendor object by ID (stable identifier)
+                  const vendor = vendorsFromStore.find((v) => v.id === value);
+
+                  if (vendor) {
+                    const slug = vendor.slug || generateVendorSlug(vendor.name);
+                    // Navigate to slug-based URL.
+                    // Products page will handle resolving this slug to an ID,
+                    // even if the slug isn't saved in the DB yet (via client-side fallback).
+                    navigate(`/products/vendor/${slug}`);
+                  } else {
+                    // Fallback: If we have an ID but can't find the vendor in store
+                    // (unlikely given we render based on store)
+                    setFilters({
+                      ...filters,
+                      vendorId: value,
+                      // We might not have the name if vendor not in store, 
+                      // but we should avoid clearing it if it's already set correctly
+                      vendorName: filters.vendorName,
+                    });
+                  }
+                }
+              }}
               className="space-y-2 pt-2"
             >
               <Label
                 htmlFor="all-vendors"
-                className={`${optionRow} ${!filters.vendorName ? optionSelected : ""}`}
+                className={`${optionRow} ${!filters.vendorId ? optionSelected : ""}`}
               >
                 <RadioGroupItem value="all" id="all-vendors" className="h-4 w-4" />
                 <span>جميع البائعين</span>
               </Label>
-              {vendors.map((vendor) => (
-                <Label
-                  key={vendor}
-                  htmlFor={vendor}
-                  className={`${optionRow} ${
-                    filters.vendorName === vendor ? optionSelected : ""
-                  }`}
-                >
-                  <RadioGroupItem value={vendor} id={vendor} className="h-4 w-4" />
-                  <span>{vendor}</span>
-                </Label>
-              ))}
+              {vendorsFromStore.length > 0 ? (
+                // Render from store vendors (preferred)
+                vendorsFromStore.map((vendor) => {
+                  if (!vendor.id) return null;
+                  return (
+                    <Label
+                      key={vendor.id}
+                      htmlFor={vendor.id}
+                      className={`${optionRow} ${filters.vendorId === vendor.id ? optionSelected : ""
+                        }`}
+                    >
+                      <RadioGroupItem value={vendor.id} id={vendor.id} className="h-4 w-4" />
+                      <span>{vendor.name}</span>
+                    </Label>
+                  );
+                })
+              ) : (
+                // Fallback for when store vendors aren't loaded or empty (should be rare)
+                vendors.map((vendorName) => (
+                  <Label
+                    key={vendorName}
+                    htmlFor={vendorName}
+                    className={`${optionRow} ${filters.vendorName === vendorName ? optionSelected : ""
+                      }`}
+                  >
+                    {/* Note: In this fallback case we have to use name as ID 
+                        This is just for backward compatibility if loading fails */}
+                    <RadioGroupItem value={vendorName} id={vendorName} className="h-4 w-4" />
+                    <span>{vendorName}</span>
+                  </Label>
+                ))
+              )}
             </RadioGroup>
           </AccordionContent>
         </AccordionItem>
@@ -615,9 +683,8 @@ export function ProductFilters() {
                 <Label
                   key={category}
                   htmlFor={category}
-                  className={`${optionRow} ${
-                    filters.category === category ? optionSelected : ""
-                  }`}
+                  className={`${optionRow} ${filters.category === category ? optionSelected : ""
+                    }`}
                 >
                   <RadioGroupItem value={category} id={category} className="h-4 w-4" />
                   <span>{category}</span>
@@ -659,9 +726,8 @@ export function ProductFilters() {
                   <Label
                     key={subcategory}
                     htmlFor={subcategory}
-                    className={`${optionRow} ${
-                      filters.subcategory === subcategory ? optionSelected : ""
-                    }`}
+                    className={`${optionRow} ${filters.subcategory === subcategory ? optionSelected : ""
+                      }`}
                   >
                     <RadioGroupItem value={subcategory} id={subcategory} className="h-4 w-4" />
                     <span>{subcategory}</span>
@@ -704,9 +770,8 @@ export function ProductFilters() {
                   <Label
                     key={brand}
                     htmlFor={brand}
-                    className={`${optionRow} justify-between ${
-                      filters.brand === brand ? optionSelected : ""
-                    }`}
+                    className={`${optionRow} justify-between ${filters.brand === brand ? optionSelected : ""
+                      }`}
                   >
                     <div className="flex items-center gap-3">
                       <RadioGroupItem value={brand} id={brand} className="h-4 w-4" />
@@ -740,9 +805,8 @@ export function ProductFilters() {
                     <Label
                       key={brand}
                       htmlFor={`processor-brand-${brand}`}
-                      className={`${optionRow} justify-between ${
-                        selected ? optionSelected : ""
-                      }`}
+                      className={`${optionRow} justify-between ${selected ? optionSelected : ""
+                        }`}
                     >
                       <div className="flex items-center gap-3 flex-1">
                         <Checkbox
@@ -804,9 +868,8 @@ export function ProductFilters() {
                     <Label
                       key={generation}
                       htmlFor={`processor-generation-${generation}`}
-                      className={`${optionRow} justify-between ${
-                        selected ? optionSelected : ""
-                      }`}
+                      className={`${optionRow} justify-between ${selected ? optionSelected : ""
+                        }`}
                     >
                       <div className="flex items-center gap-3 flex-1">
                         <Checkbox
@@ -871,9 +934,8 @@ export function ProductFilters() {
                     <Label
                       key={series}
                       htmlFor={`processor-series-${series}`}
-                      className={`${optionRow} justify-between ${
-                        selected ? optionSelected : ""
-                      }`}
+                      className={`${optionRow} justify-between ${selected ? optionSelected : ""
+                        }`}
                     >
                       <div className="flex items-center gap-3 flex-1">
                         <Checkbox
@@ -941,9 +1003,8 @@ export function ProductFilters() {
                     <Label
                       key={gpu}
                       htmlFor={`integrated-gpu-${gpu}`}
-                      className={`${optionRow} justify-between ${
-                        selected ? optionSelected : ""
-                      }`}
+                      className={`${optionRow} justify-between ${selected ? optionSelected : ""
+                        }`}
                     >
                       <div className="flex items-center gap-3 flex-1">
                         <Checkbox
@@ -1001,8 +1062,8 @@ export function ProductFilters() {
               value={filters.processorName || "all"}
               onValueChange={(value) => {
                 const newProcessorName = value === "all" ? undefined : value;
-                setFilters({ 
-                  ...filters, 
+                setFilters({
+                  ...filters,
                   processorName: newProcessorName
                 });
               }}
@@ -1055,11 +1116,11 @@ export function ProductFilters() {
                 })
               ) : (
                 <div className="text-sm text-muted-foreground py-2">
-                  {filters.dedicatedGraphicsName 
-                    ? t("filters.noCompatibleProcessors") 
+                  {filters.dedicatedGraphicsName
+                    ? t("filters.noCompatibleProcessors")
                     : (filters.processorBrand || filters.processorGeneration || filters.processorSeries || filters.integratedGpu)
-                    ? "لا توجد معالجات متاحة مع التصفيات المحددة"
-                    : t("filters.noProcessorsAvailable")}
+                      ? "لا توجد معالجات متاحة مع التصفيات المحددة"
+                      : t("filters.noProcessorsAvailable")}
                 </div>
               )}
             </RadioGroup>
@@ -1094,9 +1155,8 @@ export function ProductFilters() {
                   <Label
                     key={size}
                     htmlFor={`screen-${size}`}
-                    className={`${optionRow} ${
-                      filters.screenSize === size ? optionSelected : ""
-                    }`}
+                    className={`${optionRow} ${filters.screenSize === size ? optionSelected : ""
+                      }`}
                   >
                     <RadioGroupItem value={size} id={`screen-${size}`} className="h-4 w-4" />
                     <span>{size}"</span>
@@ -1128,8 +1188,8 @@ export function ProductFilters() {
                 onValueChange={(value) => {
                   const newGpuName = value === "all" ? undefined : value;
                   // When GPU changes, keep processor filter but it will be automatically filtered to show only compatible processors
-                  setFilters({ 
-                    ...filters, 
+                  setFilters({
+                    ...filters,
                     dedicatedGraphicsName: newGpuName
                   });
                 }}
@@ -1147,9 +1207,8 @@ export function ProductFilters() {
                     <Label
                       key={name}
                       htmlFor={`gpu-${name}`}
-                      className={`${optionRow} ${
-                        filters.dedicatedGraphicsName === name ? optionSelected : ""
-                      }`}
+                      className={`${optionRow} ${filters.dedicatedGraphicsName === name ? optionSelected : ""
+                        }`}
                     >
                       <RadioGroupItem value={name} id={`gpu-${name}`} className="h-4 w-4" />
                       <span>{name}</span>
@@ -1157,8 +1216,8 @@ export function ProductFilters() {
                   ))
                 ) : (
                   <div className="text-sm text-muted-foreground py-2">
-                    {filters.processorName 
-                      ? t("filters.noCompatibleGPUs") 
+                    {filters.processorName
+                      ? t("filters.noCompatibleGPUs")
                       : t("filters.noGPUsAvailable")}
                   </div>
                 )}
@@ -1283,36 +1342,32 @@ export function ProductFilters() {
               </Label>
               <Label
                 htmlFor="price-asc"
-                className={`${optionRow} ${
-                  filters.sortBy === "price-asc" ? optionSelected : ""
-                }`}
+                className={`${optionRow} ${filters.sortBy === "price-asc" ? optionSelected : ""
+                  }`}
               >
                 <RadioGroupItem value="price-asc" id="price-asc" className="h-4 w-4" />
                 <span>{t("filters.priceAsc")}</span>
               </Label>
               <Label
                 htmlFor="price-desc"
-                className={`${optionRow} ${
-                  filters.sortBy === "price-desc" ? optionSelected : ""
-                }`}
+                className={`${optionRow} ${filters.sortBy === "price-desc" ? optionSelected : ""
+                  }`}
               >
                 <RadioGroupItem value="price-desc" id="price-desc" className="h-4 w-4" />
                 <span>{t("filters.priceDesc")}</span>
               </Label>
               <Label
                 htmlFor="name-asc"
-                className={`${optionRow} ${
-                  filters.sortBy === "name-asc" ? optionSelected : ""
-                }`}
+                className={`${optionRow} ${filters.sortBy === "name-asc" ? optionSelected : ""
+                  }`}
               >
                 <RadioGroupItem value="name-asc" id="name-asc" className="h-4 w-4" />
                 <span>{t("filters.nameAsc")}</span>
               </Label>
               <Label
                 htmlFor="name-desc"
-                className={`${optionRow} ${
-                  filters.sortBy === "name-desc" ? optionSelected : ""
-                }`}
+                className={`${optionRow} ${filters.sortBy === "name-desc" ? optionSelected : ""
+                  }`}
               >
                 <RadioGroupItem value="name-desc" id="name-desc" className="h-4 w-4" />
                 <span>{t("filters.nameDesc")}</span>
@@ -1333,8 +1388,8 @@ export function ProductFilters() {
             category: undefined,
             subcategory: undefined,
             brand: undefined,
-              vendorId: undefined,
-              vendorName: undefined,
+            vendorId: undefined,
+            vendorName: undefined,
             color: undefined,
             size: undefined,
             minPrice: undefined,

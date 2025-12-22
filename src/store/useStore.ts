@@ -34,7 +34,7 @@ interface StoreState {
   addToCart: (product: Product, quantity?: number, selectedSize?: ProductSize | null, selectedAddons?: ProductAddon[], selectedColor?: string) => void;
   removeFromCart: (productId: string, selectedSizeId?: string | null) => void;
   updateCartItemQuantity: (productId: string, quantity: number, selectedSizeId?: string | null) => void;
-  setFilters: (filters: Filter) => void;
+  setFilters: (filters: Filter | ((prev: Filter) => Filter)) => void;
   clearCart: (skipRestore?: boolean) => Promise<void>;
   addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
   updateProduct: (product: Product) => Promise<void>;
@@ -320,7 +320,9 @@ export const useStore = create<StoreState>()(
           ),
         }));
       },
-      setFilters: (filters) => set({ filters }),
+      setFilters: (filters) => set((state) => ({
+        filters: typeof filters === 'function' ? filters(state.filters) : filters
+      })),
       clearCart: async (skipRestore = false) => {
         const cart = get().cart;
 

@@ -1,11 +1,15 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useStore } from "@/store/useStore";
 import { ProductCard } from "@/components/ProductCard";
 import { ProductFilters } from "@/components/ProductFilters";
 import { ProductModal } from "@/components/ProductModal";
+import { VendorCard } from "@/components/VendorCard";
 import { Product } from "@/types/product";
+import { Vendor } from "@/types/vendor";
+import { vendorsService } from "@/lib/firebase";
+import { generateVendorSlug } from "@/utils/slugify";
 import Footer from "@/components/Footer";
 import {
   Pagination,
@@ -34,9 +38,11 @@ import { DEFAULT_SUPPLIER } from "@/constants/supplier";
 
 export default function Products() {
   const { t } = useTranslation();
-  const { category: categoryParam } = useParams();
+  const { category: categoryParam, vendorSlug } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const products = useStore((state) => state.products);
+  const vendors = useStore((state) => state.vendors);
   const filters = useStore((state) => state.filters);
   const setFilters = useStore((state) => state.setFilters);
   const loadProducts = useStore((state) => state.loadProducts);
@@ -47,6 +53,8 @@ export default function Products() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [openDrawer, setOpenDrawer] = useState(false);
+  const [vendor, setVendor] = useState<Vendor | null>(null);
+  const [vendorLoading, setVendorLoading] = useState(false);
   const productsPerPage = 12;
 
   // Load products from Firebase on component mount
@@ -54,31 +62,110 @@ export default function Products() {
     loadProducts();
   }, [loadProducts]);
 
+  // Fetch vendor data when vendorSlug is present
+  useEffect(() => {
+    async function fetchVendor() {
+      if (!vendorSlug) {
+        setVendor(null);
+
+        // Check if we have vendorId in query params (Fallback for vendors without slugs)
+        const vendorIdParam = searchParams.get('vendorId');
+
+        if (vendorIdParam) {
+          // If we have a vendorId param, ensure it's set in filters
+          if (filters.vendorId !== vendorIdParam) {
+            setFilters((prev) => ({
+              ...prev,
+              vendorId: vendorIdParam,
+              // Keep existing name if available, or it will be resolved by UI
+            }));
+          }
+          // Don't clear filters
+          return;
+        }
+
+        // Clear vendor filters ONLY if no vendor slug AND no vendorId param
+        if (filters.vendorId || filters.vendorName) {
+          setFilters((prev) => ({
+            ...prev,
+            vendorId: undefined,
+            vendorName: undefined,
+          }));
+        }
+        return;
+      }
+
+      setVendorLoading(true);
+      try {
+        const vendorData = await vendorsService.getVendorBySlug(vendorSlug);
+        if (vendorData) {
+          setVendor(vendorData);
+          // Update filters to filter by this vendor
+          setFilters((prev) => ({
+            ...prev,
+            vendorId: vendorData.id,
+            vendorName: vendorData.name,
+          }));
+        } else {
+          // Fallback: Try to find vendor in local store by generating slugs
+          // This handles cases where the slug isn't saved in DB yet but we can compute it
+          console.log(`Searching for vendor with slug "${vendorSlug}" in local store...`);
+
+          const foundVendor = vendors.find(v => {
+            const vSlug = v.slug || generateVendorSlug(v.name);
+            return vSlug === vendorSlug;
+          });
+
+          if (foundVendor) {
+            console.log("Found vendor locally:", foundVendor.name);
+            setVendor(foundVendor);
+            setFilters((prev) => ({
+              ...prev,
+              vendorId: foundVendor.id,
+              vendorName: foundVendor.name,
+            }));
+          } else {
+            setVendor(null);
+            console.error('Vendor not found for slug:', vendorSlug);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching vendor:', error);
+        setVendor(null);
+      } finally {
+        setVendorLoading(false);
+      }
+    }
+
+    fetchVendor();
+  }, [vendorSlug, searchParams, setFilters, vendors]); // Added vendors to dep array for fallback lookup
+
   // Read category from URL and update filters
   useEffect(() => {
     if (categoryParam) {
       // Decode the category parameter (handle Arabic text)
       const decodedCategory = decodeURIComponent(categoryParam);
       if (decodedCategory !== filters.category) {
-        setFilters({
-          ...filters,
+        setFilters((prev) => ({
+          ...prev,
           category: decodedCategory,
           subcategory: undefined, // Reset subcategory when category changes
           brand: undefined, // Reset brand when category changes
           color: undefined, // Reset color when category changes
           size: undefined, // Reset size when category changes
-        });
+        }));
       }
     } else if (filters.category) {
       // If no category in URL but filters has category, clear it
-      setFilters({
-        ...filters,
+      // If no category in URL but filters has category, clear it
+      setFilters((prev) => ({
+        ...prev,
         category: undefined,
         subcategory: undefined,
         brand: undefined,
         color: undefined,
         size: undefined,
-      });
+      }));
     }
   }, [categoryParam, filters.category, setFilters]);
 
@@ -93,7 +180,7 @@ export default function Products() {
     let matchesSize = true;
     let matchesSupplier = true;
     let matchesProcessorName = true;
-  let matchesDedicatedGraphicsName = true;
+    let matchesDedicatedGraphicsName = true;
     let matchesHasDedicatedGraphics = true;
     let matchesScreenSize = true;
     let matchesProcessorBrand = true;
@@ -285,10 +372,27 @@ export default function Products() {
 
   return (
     <div className="min-h-screen flex flex-col">
-        <div className="container py-8">
+      <div className="container py-8">
 
 
         <ActiveFilters />
+
+        {/* Vendor Card - Show when filtering by vendor */}
+        {vendorLoading ? (
+          <div className="flex items-center justify-center p-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <span className="ml-2 text-muted-foreground">جاري تحميل بيانات المتجر...</span>
+          </div>
+        ) : vendor ? (
+          <VendorCard vendor={vendor} />
+        ) : vendorSlug ? (
+          <div className="w-full mb-6 p-6 bg-destructive/10 border border-destructive/20 rounded-lg text-center">
+            <p className="text-destructive font-semibold">المتجر غير موجود</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              المتجر الذي تبحث عنه غير متوفر حالياً
+            </p>
+          </div>
+        ) : null}
 
         <div className="w-full mb-6">
           <ProductSearch
@@ -296,7 +400,7 @@ export default function Products() {
             onChange={(value) => setFilters({ ...filters, search: value })}
           />
         </div>
-        
+
         <div className="flex flex-col md:flex-row gap-6">
           {/* Mobile Filter Button - Opens from bottom */}
           <div className="md:hidden mb-4">

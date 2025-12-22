@@ -6,11 +6,18 @@ export const VendorSchema = z.object({
 
   // Basic info
   name: z.string(), // Vendor Name
+  slug: z.string().optional(), // URL-friendly slug for SEO
   phoneNumber: z.string(), // Used later for WhatsApp
   storeLocation: z.string(), // Store address / location
 
   // Limits & settings
   productLimit: z.number().int().nonnegative().default(5), // Default 5 products per PRD
+  editProductLimit: z.number().int().nonnegative().default(5), // Maximum edits allowed
+  deleteProductLimit: z.number().int().nonnegative().default(5), // Maximum deletes allowed
+
+  // Usage counters
+  editProductUsed: z.number().int().nonnegative().default(0), // Edits used
+  deleteProductUsed: z.number().int().nonnegative().default(0), // Deletes used
 
   // Branding
   logoUrl: z.string().url().optional().nullable(),

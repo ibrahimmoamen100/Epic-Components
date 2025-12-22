@@ -26,7 +26,7 @@ const AdminAnalytics = lazy(async () => {
     return module;
   } catch (err: any) {
     console.error("Error loading AdminAnalytics:", err);
-    return { 
+    return {
       default: () => (
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
@@ -85,42 +85,44 @@ const AppRoutes = () => {
 
   return (
     <>
-    
-    <ScrollToTop />
-    <Layout>
-      <ErrorBoundary>
-        <Suspense fallback={<Loading />}>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/admin/setup" element={<AdminSetup />} />
-            <Route path="/admin/orders" element={<AdminOrders />} />
-            <Route path="/admin/analytics" element={<AdminAnalytics />} />
-            <Route path="/admin/profit-analysis" element={<AdminProfitAnalysis />} />
-            <Route path="/cashier" element={<Cashier />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/products/category/:category" element={<Products />} />
-            {/* New SEO-friendly singular route */}
-            <Route path="/product/:id" element={<ProductDetails />} />
-            {/* Backward compatibility */}
-            <Route path="/products/:id" element={<ProductDetails />} />
-            <Route path="/locations" element={<Locations />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/careers" element={<Careers />} />
-            <Route path="/faq" element={<FAQ />} />
-            <Route path="/delivery" element={<Delivery />} />
-            <Route path="/orders" element={<Orders />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/attendance" element={<Attendance />} />
-            {/* Vendor (Seller) routes */}
-            <Route path="/vendor/signup" element={<VendorSignup />} />
-            <Route path="/vendor/login" element={<VendorLogin />} />
-            <Route path="/vendor/dashboard" element={<VendorDashboard />} />
-          </Routes>
-        </Suspense>
-      </ErrorBoundary>
-    </Layout>
+
+      <ScrollToTop />
+      <Layout>
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/admin/setup" element={<AdminSetup />} />
+              <Route path="/admin/orders" element={<AdminOrders />} />
+              <Route path="/admin/analytics" element={<AdminAnalytics />} />
+              <Route path="/admin/profit-analysis" element={<AdminProfitAnalysis />} />
+              <Route path="/cashier" element={<Cashier />} />
+              <Route path="/cart" element={<Cart />} />
+              <Route path="/products" element={<Products />} />
+              <Route path="/products/vendor/:vendorSlug" element={<Products />} />
+              <Route path="/products/category/:category" element={<Products />} />
+              <Route path="/products/vendor/:vendorSlug/category/:category" element={<Products />} />
+              {/* New SEO-friendly singular route */}
+              <Route path="/product/:id" element={<ProductDetails />} />
+              {/* Backward compatibility */}
+              <Route path="/products/:id" element={<ProductDetails />} />
+              <Route path="/locations" element={<Locations />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/careers" element={<Careers />} />
+              <Route path="/faq" element={<FAQ />} />
+              <Route path="/delivery" element={<Delivery />} />
+              <Route path="/orders" element={<Orders />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/attendance" element={<Attendance />} />
+              {/* Vendor (Seller) routes */}
+              <Route path="/vendor/signup" element={<VendorSignup />} />
+              <Route path="/vendor/login" element={<VendorLogin />} />
+              <Route path="/vendor/dashboard" element={<VendorDashboard />} />
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
+      </Layout>
     </>
   );
 };
